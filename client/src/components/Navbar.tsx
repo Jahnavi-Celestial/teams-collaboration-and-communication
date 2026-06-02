@@ -16,13 +16,13 @@ const Navbar = () => {
   const navigate = useNavigate();
   const {logoutUser} = useAuth()
 
-  const userInitial = JSON.parse(localStorage.getItem('user') || "null").email[0].toUpperCase()
+  const userInitial = JSON.parse(localStorage.getItem('user') || "null")?.email[0]?.toUpperCase()
  
   return (
     <>
       <AppBar position="sticky" sx={{ bgcolor: 'white', boxShadow: 1, backgroundColor: "#3d77cf", color: "#fff", zIndex: "10000"}}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>TeamChat</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }} onClick={()=>navigate("/")}>TeamChat</Typography>
  
           {isMobile ? (
             <IconButton onClick={() => setMobileOpen(!mobileOpen)}>

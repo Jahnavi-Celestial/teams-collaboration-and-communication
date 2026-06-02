@@ -41,11 +41,14 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
   });
 
   const [createTeam] = useMutation(createTeamWithMembers, {
-    refetchQueries: ["GetTeams"],
+    update(cache) {
+        cache.evict({ fieldName: "getTeams" });
+        cache.gc();
+    },
     onCompleted: () => {
       onClose();
       setTeamName("");
-      setDescription("")
+      setDescription("");
       setSelectedUsers([]);
       setInputValue("");
       setSearchTerm("");
@@ -53,7 +56,7 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
     },
   });
 
-  const handleCreate = ():void => {
+  const handleCreate = (): void => {
     if (!teamName || selectedUsers.length === 0) return;
     createTeam({
       variables: {
@@ -90,8 +93,8 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
           maxRows={4}
           placeholder="Team description"
           value={description}
-          onChange={(e)=>setDescription(e.target.value)}
-          style={{ width: "100%", padding: "20px 10px", fontSize: "large"}}
+          onChange={(e) => setDescription(e.target.value)}
+          style={{ width: "100%", padding: "20px 10px", fontSize: "large" }}
         />
         <FormControlLabel
           control={

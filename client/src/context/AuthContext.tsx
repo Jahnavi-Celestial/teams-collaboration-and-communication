@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { jwtDecode, type JwtPayload } from "jwt-decode";
 
-interface CustomJwtPayload extends JwtPayload {
+export interface CustomJwtPayload extends JwtPayload {
   userId: string;
+  email: string
 }
 
 interface AuthContextType {

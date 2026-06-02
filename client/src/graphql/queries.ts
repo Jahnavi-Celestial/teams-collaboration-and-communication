@@ -38,8 +38,8 @@ export const GetAllPublicTeams = gql`
 `;
 
 export const GetTeams = gql`
-  query GetTeams{
-    getTeams{
+  query GetTeams($skip: Int, $take: Int){
+    getTeams(skip: $skip, take: $take){
         id
         name
         description
@@ -165,24 +165,6 @@ export const GetTaskDetail = gql`
         id
         name
         email
-      }
-    }
-  }
-`;
-
-export const GetAllMessages = gql`
-  query GetAllMessages($teamId: String) {
-    getAllMessages(teamId: $teamId) {
-      id
-      content
-      created_at
-      sender {
-        id
-        name
-        email
-        avatar_url
-        created_at
-        updated_at
       }
     }
   }

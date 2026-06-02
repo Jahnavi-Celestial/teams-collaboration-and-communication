@@ -1,4 +1,4 @@
-import { Arg, Authorized, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import { Arg, Authorized, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
 import { type MyContext } from "../middleware/authMiddleware.ts";
 import { Team } from "../entities/Team.ts";
 import { TeamMember, UserRole } from "../entities/TeamMember.ts";
@@ -54,11 +54,13 @@ export class TeamResolver {
   @Authorized()
   @Query(() => [Team])
   async getAllPublicTeams(
-    @Arg("searchTerm", ()=>String, {nullable: true}) searchTerm?: string
+    @Arg("searchTerm", () => String, { nullable: true }) searchTerm?: string,
   ) {
     const teamsRepo = AppDataSource.getRepository(Team);
 
-    const condition = searchTerm ? { is_public: true, name: ILike(`%${searchTerm}%`)} : {is_public: true}
+    const condition = searchTerm
+      ? { is_public: true, name: ILike(`%${searchTerm}%`) }
+      : { is_public: true };
 
     const teams = await teamsRepo.find({
       where: condition,
@@ -76,18 +78,23 @@ export class TeamResolver {
   @Authorized()
   @Query(() => [Team])
   async getTeams(
-    @Ctx() context: MyContext
-  ){
+    @Ctx() context: MyContext,
+    @Arg("skip", () => Int, { defaultValue: 0 }) skip: number,
+    @Arg("take", () => Int, { defaultValue: 9 }) take: number,
+  ) {
     const teamsRepo = AppDataSource.getRepository(Team);
 
     const teams = await teamsRepo.find({
-      where: {members: {user: {id: context.user!.userId}}},
+      where: { members: { user: { id: context.user!.userId } } },
       relations: {
         created_by: true,
         members: {
           user: true,
         },
       },
+      order: { created_at: "DESC" },
+      skip: skip,
+      take: take,
     });
 
     return teams;
@@ -112,7 +119,7 @@ export class TeamResolver {
       where: { user: { id: userId }, team: { id: In(teamIds) } },
       relations: {
         team: true,
-        user: true
+        user: true,
       },
     });
 
@@ -140,8 +147,8 @@ export class TeamResolver {
   @Authorized()
   @Mutation(() => Boolean)
   async deleteTeam(
-    @Arg("teamId", ()=>String) teamId: string, 
-    @Ctx() context: MyContext
+    @Arg("teamId", () => String) teamId: string,
+    @Ctx() context: MyContext,
   ) {
     const userId = context.user!.userId;
     const teamMemberRepo = AppDataSource.getRepository(TeamMember);
@@ -155,9 +162,7 @@ export class TeamResolver {
     });
 
     if (!member || member.role !== UserRole.ADMIN) {
-      throw new Error(
-        "Access Denied: Only Admin can delete Team!",
-      );
+      throw new Error("Access Denied: Only Admin can delete Team!");
     }
 
     const result = await teamRepo.delete(teamId);
@@ -165,151 +170,144 @@ export class TeamResolver {
     return result.affected !== 0;
   }
 
-  @Query(()=> [TeamMember])
-  async getMembersOfTeam(
-    @Arg("teamId", ()=>String) teamId: string
-  ){
-    const teamMemberRepo = AppDataSource.getRepository(TeamMember)
+  @Query(() => [TeamMember])
+  async getMembersOfTeam(@Arg("teamId", () => String) teamId: string) {
+    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
 
     const members = await teamMemberRepo.find({
-        where:{team: {id: teamId}},
-        relations: {
-            user: true
-        }
-    })
+      where: { team: { id: teamId } },
+      relations: {
+        user: true,
+      },
+    });
 
-    return members
+    return members;
   }
 
   @Authorized()
-  @Mutation(()=>Boolean)
+  @Mutation(() => Boolean)
   async addMemberToTeam(
-    @Arg("teamId", ()=>String) teamId: string,
-    @Arg("userId", ()=>String) userId: string,
-    @Ctx() context: MyContext
-  ){
+    @Arg("teamId", () => String) teamId: string,
+    @Arg("userId", () => String) userId: string,
+    @Ctx() context: MyContext,
+  ) {
     const currentUserId = context.user!.userId;
 
     const teamMemberRepo = AppDataSource.getRepository(TeamMember);
 
     const callerMember = await teamMemberRepo.findOne({
-        where: {team: {id: teamId}, user: {id: currentUserId}}
-    })
+      where: { team: { id: teamId }, user: { id: currentUserId } },
+    });
 
-    if(!callerMember || callerMember.role !== UserRole.ADMIN){
-        throw new Error("Access Denied: Only admin can add members")
+    if (!callerMember || callerMember.role !== UserRole.ADMIN) {
+      throw new Error("Access Denied: Only admin can add members");
     }
 
     const existing = await teamMemberRepo.findOne({
-        where: {team: {id: teamId}, user: {id: userId}}
-    })
+      where: { team: { id: teamId }, user: { id: userId } },
+    });
 
-    if(existing){
-        throw new Error("User already in team")
+    if (existing) {
+      throw new Error("User already in team");
     }
 
     await teamMemberRepo.save({
-        team: {id: teamId} as Team,
-        user: {id: userId} as User,
-        role: UserRole.MEMBER
-    })
-
-    return true
-  }
-
-  @Authorized()
-  @Mutation(()=>Boolean)
-  async changeMemberRole(
-    @Arg("teamId", ()=>String) teamId: string,
-    @Arg("memberId", ()=>String) memberId: string,
-    @Arg("newRole", ()=>UserRole) newRole: UserRole,
-    @Ctx() context: MyContext
-  ){
-    const currentUserId = context.user!.userId;
-
-    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
-
-    const callerMember = await teamMemberRepo.findOne({
-        where: {team: {id: teamId}, user: {id: currentUserId}}
-    })
-
-    if(!callerMember || callerMember.role !== UserRole.ADMIN){
-        throw new Error("Access Denied: Only admin can change role")
-    }
-
-    const targetMember = await teamMemberRepo.findOne({
-        where: {id: memberId},
-        relations: {
-            user: true
-        }
-    })
-
-    if(!targetMember){
-        throw new Error("Member not found")
-    }
-
-    if(targetMember.role === UserRole.ADMIN && newRole !== UserRole.ADMIN){
-        const adminCount = await teamMemberRepo.count({
-            where: {
-                team: {id: teamId} as Team,
-                role: UserRole.ADMIN
-            }
-        })
-        if(adminCount <= 1) throw new Error("Cannot change role of last admin")
-    }
-
-    await teamMemberRepo.update(
-        {id: memberId},
-        {role: newRole}
-    )
-
-    return true
-  }
-
-  @Authorized()
-  @Mutation(()=>Boolean)
-  async removeMemberFromTeam(
-    @Arg("teamId", ()=>String) teamId: string,
-    @Arg("memberId", ()=>String) memberId: string,
-    @Ctx() context: MyContext
-  ){
-    const currentUserId = context.user!.userId;
-
-    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
-
-    const callerMember = await teamMemberRepo.findOne({
-        where: {team: {id: teamId}, user: {id: currentUserId}}
-    })
-
-    if(!callerMember || callerMember.role !== UserRole.ADMIN){
-        throw new Error("Access Denied: Only admin can remove member")
-    }
-
-    const targetMember = await teamMemberRepo.findOne({
-        where: {id: memberId}, 
-        relations: {
-            user: true
-        }
-    })
-
-    if(!targetMember){
-        throw new Error("Member not found")
-    }
-
-    if(targetMember.role === UserRole.ADMIN){
-        const adminCount = await teamMemberRepo.count({
-            where: {
-                team: {id: teamId} as Team,
-                role: UserRole.ADMIN
-            }
-        })
-        if(adminCount <= 1) throw new Error("Cannot change role of last admin")
-    }
-
-    await teamMemberRepo.delete({id: memberId})
+      team: { id: teamId } as Team,
+      user: { id: userId } as User,
+      role: UserRole.MEMBER,
+    });
 
     return true;
   }
 
-  
+  @Authorized()
+  @Mutation(() => Boolean)
+  async changeMemberRole(
+    @Arg("teamId", () => String) teamId: string,
+    @Arg("memberId", () => String) memberId: string,
+    @Arg("newRole", () => UserRole) newRole: UserRole,
+    @Ctx() context: MyContext,
+  ) {
+    const currentUserId = context.user!.userId;
+
+    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+
+    const callerMember = await teamMemberRepo.findOne({
+      where: { team: { id: teamId }, user: { id: currentUserId } },
+    });
+
+    if (!callerMember || callerMember.role !== UserRole.ADMIN) {
+      throw new Error("Access Denied: Only admin can change role");
+    }
+
+    const targetMember = await teamMemberRepo.findOne({
+      where: { id: memberId },
+      relations: {
+        user: true,
+      },
+    });
+
+    if (!targetMember) {
+      throw new Error("Member not found");
+    }
+
+    if (targetMember.role === UserRole.ADMIN && newRole !== UserRole.ADMIN) {
+      const adminCount = await teamMemberRepo.count({
+        where: {
+          team: { id: teamId } as Team,
+          role: UserRole.ADMIN,
+        },
+      });
+      if (adminCount <= 1) throw new Error("Cannot change role of last admin");
+    }
+
+    await teamMemberRepo.update({ id: memberId }, { role: newRole });
+
+    return true;
+  }
+
+  @Authorized()
+  @Mutation(() => Boolean)
+  async removeMemberFromTeam(
+    @Arg("teamId", () => String) teamId: string,
+    @Arg("memberId", () => String) memberId: string,
+    @Ctx() context: MyContext,
+  ) {
+    const currentUserId = context.user!.userId;
+
+    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+
+    const callerMember = await teamMemberRepo.findOne({
+      where: { team: { id: teamId }, user: { id: currentUserId } },
+    });
+
+    if (!callerMember || callerMember.role !== UserRole.ADMIN) {
+      throw new Error("Access Denied: Only admin can remove member");
+    }
+
+    const targetMember = await teamMemberRepo.findOne({
+      where: { id: memberId },
+      relations: {
+        user: true,
+      },
+    });
+
+    if (!targetMember) {
+      throw new Error("Member not found");
+    }
+
+    if (targetMember.role === UserRole.ADMIN) {
+      const adminCount = await teamMemberRepo.count({
+        where: {
+          team: { id: teamId } as Team,
+          role: UserRole.ADMIN,
+        },
+      });
+      if (adminCount <= 1) throw new Error("Cannot change role of last admin");
+    }
+
+    await teamMemberRepo.delete({ id: memberId });
+
+    return true;
+  }
 }

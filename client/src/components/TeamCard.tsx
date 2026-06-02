@@ -1,8 +1,11 @@
 import { Card, CardContent, CardActions, Typography, Button } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 const TeamCard = ({ team }) => {
+    const navigate = useNavigate()
+    
   return (
-    <Card variant="outlined" sx={{width: "auto"}}>
+    <Card variant="outlined" sx={{width: "auto", height: "200px"}}>
       <CardContent>
         <Typography gutterBottom sx={{ fontSize: 20 }}>
           {team?.name}
@@ -17,7 +20,7 @@ const TeamCard = ({ team }) => {
         </Typography>
       </CardContent>
       <CardActions>
-        <Button size="small">Visit Team</Button>
+        <Button size="small" onClick={()=>navigate(`/team/${team.id}`)}>Visit Team</Button>
       </CardActions>
     </Card>
   );

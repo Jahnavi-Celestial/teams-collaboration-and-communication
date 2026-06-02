@@ -13,8 +13,9 @@ import {
 } from "@mui/material";
 import { useMutation } from "@apollo/client/react";
 import { Login, Register, GoogleLoginMutation } from "../graphql/mutations";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, type CustomJwtPayload } from "../context/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
 
 interface FormData{
     name: string,
@@ -55,7 +56,8 @@ export default function Sign() {
   const [googleLoginAction] = useMutation(GoogleLoginMutation, {
     onCompleted: (data) => {
       if (data?.googleLogin) {
-        loginUser(data.googleLogin, { email: formData.email || "" });
+        const decoded = jwtDecode<CustomJwtPayload>(data?.googleLogin);
+        loginUser(data.googleLogin, { email: decoded.email || "" });
         navigate("/dashboard", { replace: true });
       }
     },

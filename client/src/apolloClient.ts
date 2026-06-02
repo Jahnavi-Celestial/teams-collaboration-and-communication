@@ -3,7 +3,7 @@ import { setContext } from '@apollo/client/link/context';
 
 const httpLink = createHttpLink({
   // uri: import.meta.env.VITE_BACKEND_URL,
-  uri: "http://localhost:4000/graphql"
+  uri: "http://localhost:4000/graphql",
 });
 
 const authLink = setContext((_, { headers }) => {
@@ -18,5 +18,15 @@ const authLink = setContext((_, { headers }) => {
 
 export const client = new ApolloClient({
   link: authLink.concat(httpLink),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {
+          getTeams: {
+            keyArgs: ["skip"], 
+          },
+        },
+      },
+    },
+  }),
 });

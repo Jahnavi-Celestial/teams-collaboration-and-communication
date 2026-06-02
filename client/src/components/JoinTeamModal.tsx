@@ -35,7 +35,10 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
   });
 
   const [joinTeams] = useMutation(JoinTeams, {
-    refetchQueries: ["GetTeams"],
+    update(cache) {
+        cache.evict({ fieldName: "getTeams" });
+        cache.gc();
+    },
     onCompleted: () => {
       onClose();
       setSelectedTeams([]);
