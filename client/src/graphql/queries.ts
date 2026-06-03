@@ -169,3 +169,16 @@ export const GetTaskDetail = gql`
     }
   }
 `;
+
+export const GetAllMessages = gql`
+  query GetAllMessages($teamId: String!, $limit: Int, $offset: Int) {
+    getAllMessages(teamId: $teamId, limit: $limit, offset: $offset) {
+      id
+      content
+      created_at
+      sender {
+        id
+      }
+    }
+  }
+`;

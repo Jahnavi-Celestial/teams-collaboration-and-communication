@@ -1,4 +1,4 @@
-import { Arg, Authorized, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import { Arg, Authorized, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
 import { type MyContext } from "../middleware/authMiddleware.ts";
 import { AppDataSource } from "../config/db.ts";
 import { Message } from "../entities/Message.ts";
@@ -32,9 +32,11 @@ export class MessageResolver {
 
     io.to(teamId).emit("receive_message", {
       id: newMessage.id,
-      senderId,
+      sender: {
+        id: senderId,
+      },
       content,
-      created_at: newMessage.created_at,
+      created_at: newMessage.created_at ? newMessage.created_at.toISOString() : new Date().toISOString()
     });
 
     return true;
@@ -77,32 +79,49 @@ export class MessageResolver {
   @Authorized()
   @Query(() => [Message])
   async getAllMessages(
-    @Arg("teamId", ()=>String) teamId: string,
+    @Arg("teamId", () => String) teamId: string,
+    @Arg("limit", () => Int, { defaultValue: 20 }) limit: number,
+    @Arg("offset", () => Int, { defaultValue: 0 }) offset: number,
     @Ctx() context: MyContext,
   ) {
     const messageRepo = AppDataSource.getRepository(Message);
     const messages = await messageRepo.find({
       where: { team: { id: teamId } },
-      relations: {sender: true},
-      order: { created_at: "ASC" },
+      relations: { sender: true },
+      order: { created_at: "DESC" },
+      take: limit,
+      skip: offset,
     });
 
-    const key = process.env.ENCRYPTION_KEY!;
+    messages.reverse();
+
+    const key = crypto.createHash('sha256').update(String(process.env.ENCRYPTION_KEY)).digest();
 
     return messages.map((msg) => {
-      const decipher = crypto.createDecipheriv(
-        "aes-256-cbc",
-        Buffer.from(key),
-        Buffer.from(msg.initialization_vector, "hex"),
-      );
+      try {
+        const decipher = crypto.createDecipheriv(
+          "aes-256-cbc",
+          Buffer.from(key),
+          Buffer.from(msg.initialization_vector, "hex"),
+        );
 
-      let decrypted = decipher.update(msg.content_encrypted, "hex", "utf8");
-      decrypted += decipher.final("utf8");
+        let decrypted = decipher.update(msg.content_encrypted, "hex", "utf8");
+        decrypted += decipher.final("utf8");
 
-      return {
-        ...msg,
-        content: decrypted,
-      };
+        return {
+          id: msg.id,
+          content: decrypted,
+          created_at: msg.created_at,
+          sender: msg.sender,
+        };
+      } catch (err) {
+        return {
+          id: msg.id,
+          content: "[Decryption Failed]",
+          created_at: msg.created_at,
+          sender: msg.sender,
+        };
+      }
     });
   }
 }

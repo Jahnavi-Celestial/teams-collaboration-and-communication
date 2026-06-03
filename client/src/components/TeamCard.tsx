@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 const TeamCard = ({ team }) => {
     const navigate = useNavigate()
-    
+
   return (
     <Card variant="outlined" sx={{width: "auto", height: "200px"}}>
       <CardContent>

@@ -38,8 +38,10 @@ const Dashboard = () => {
         refetch()
     }, [data])
 
-    if (loading && page === 1) {
-        return <Typography>Loading...</Typography>;
+    if (loading) {
+        return <Box sx={{height: "100vh",display: "flex", alignItems: "center", justifyContent: "center", color: "#3d77cf"}}>
+            <Typography sx={{fontSize: "30px"}}>Loading...</Typography>
+        </Box>
     }
 
   return (

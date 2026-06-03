@@ -17,6 +17,7 @@ import { TaskResolver } from "./resolvers/TaskResolver.ts";
 import { AppDataSource } from "./config/db.ts";
 import { MessageResolver } from "./resolvers/MessageResolver.ts";
 import cors  from "cors";
+import * as crypto from "crypto";
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ async function main() {
     const httpServer = createServer(app);
 
     const io = new Server(httpServer, {
+      path: "/socket.io/",
       cors: {
         origin: "http://localhost:5173",
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -71,11 +73,19 @@ async function main() {
     });
 
     const wsServer = new WebSocketServer({
-      server: httpServer,
-      path: "/graphql",
+      noServer: true,
     });
 
     const serverCleanup = useServer({ schema }, wsServer);
+
+    httpServer.on("upgrade", (request, socket, head) => {
+      const { pathname } = new URL(request.url || "", `http://${request.headers.host}`);
+      if (pathname && pathname.startsWith("/graphql")) {
+        wsServer.handleUpgrade(request, socket, head, (ws) => {
+          wsServer.emit("connection", ws, request);
+        });
+      }
+     });
 
     const server = new ApolloServer({
       schema,

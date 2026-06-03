@@ -59,7 +59,7 @@ export class TaskResolver {
   async getAllAssignedTask(
     @Arg("userId", () => String) userId: string,
     @Ctx() context: MyContext,
-    @Arg("teamId", () => String) teamId?: string,
+    @Arg("teamId", () => String, {nullable: true}) teamId?: string,
     @Arg("searchTerm", () => String, { nullable: true }) searchTerm?: string,
     @Arg("status", () => TaskStatus, { nullable: true }) status?: TaskStatus,
   ) {
@@ -103,7 +103,7 @@ export class TaskResolver {
   async getAllCreatedTask(
     @Arg("userId", () => String) userId: string,
     @Ctx() context: MyContext,
-    @Arg("teamId", () => String) teamId?: string,
+    @Arg("teamId", () => String, {nullable: true}) teamId?: string,
     @Arg("searchTerm", () => String, { nullable: true }) searchTerm?: string,
     @Arg("status", () => TaskStatus, { nullable: true }) status?: TaskStatus,
   ) {

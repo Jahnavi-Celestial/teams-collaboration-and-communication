@@ -2,9 +2,11 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import ChatRoom from "../pages/ChatRoom";
 import Dashboard from "../pages/Dashboard";
 import SignIn from "../pages/SignIn";
-import Tasks from "../pages/Tasks";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
+import AssignedTask from "../pages/AssignedTask";
+import CreatedTask from "../pages/CreatedTask";
+import TaskDetail from "../pages/TaskDetail";
 
 const ProtectedRoute = () => {
   const { user } = useAuth();
@@ -33,8 +35,16 @@ export const router = createBrowserRouter([
         element: <ChatRoom />,
       },
       {
-        path: "tasks",
-        element: <Tasks />,
+        path: "assignedTask",
+        element: <AssignedTask />,
+      },
+      {
+        path: "createdTask",
+        element: <CreatedTask />,
+      },
+      {
+        path: "/taskDetail/:id",
+        element: <TaskDetail />,
       },
     ],
   },

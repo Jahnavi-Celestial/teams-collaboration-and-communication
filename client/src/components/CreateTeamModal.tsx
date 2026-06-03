@@ -21,7 +21,7 @@ interface Props {
   onClose: () => void;
 }
 
-interface User {
+export interface User {
   name: string;
   id: string;
 }
