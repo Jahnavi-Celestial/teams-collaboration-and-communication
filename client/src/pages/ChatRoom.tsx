@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { useTheme, useMediaQuery, Box } from "@mui/material";
 import ChatHeader from "../components/ChatHeader";
 import { useState } from "react";
+import MessageArea from "../components/MessageArea";
 
 const ChatRoom = () => {
   const { teamId } = useParams<{ teamId: string }>();
@@ -38,6 +39,8 @@ const ChatRoom = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />
+
+        <MessageArea active={activeTab}/>
       </Box>
     </Box>
   );

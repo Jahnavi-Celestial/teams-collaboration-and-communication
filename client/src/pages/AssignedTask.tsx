@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import TaskCard from "../components/TaskCard";
 import type { User } from "../components/CreateTeamModal";
 
-interface Task{
+export interface Task{
   id: string,
   subject: string,
   assigned_by: User,
@@ -14,7 +14,8 @@ interface Task{
   status: string
   teamId: string,
   deadline: string,
-  created_at: string
+  created_at: string,
+  updated_at: string
 }
 
 const AssignedTask = () => {

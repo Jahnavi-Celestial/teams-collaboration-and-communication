@@ -4,18 +4,7 @@ import { GetAllCreatedTask } from "../graphql/queries";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import TaskCard from "../components/TaskCard";
-import type { User } from "../components/CreateTeamModal";
-
-interface Task{
-  id: string,
-  subject: string,
-  assigned_by: User,
-  assigned_to: User,
-  status: string
-  teamId: string,
-  deadline: string,
-  created_at: string
-}
+import type { Task } from "./AssignedTask";
 
 const CreatedTask = () => {
   const [search, setSearch] = useState<string>("");
@@ -42,8 +31,6 @@ const CreatedTask = () => {
       status: status || null 
     }
   });
-
-  console.log(data)
 
   if (loading) {
     return (

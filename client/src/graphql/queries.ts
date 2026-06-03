@@ -151,7 +151,6 @@ export const GetTaskDetail = gql`
       status
       deadline
       created_at
-      updated_at
       team {
         id
         name
