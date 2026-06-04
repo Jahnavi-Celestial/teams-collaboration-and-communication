@@ -1,15 +1,23 @@
 import { NavLink } from 'react-router-dom';
 import { Box, Typography, List, ListItem, ListItemButton, ListItemText } from '@mui/material';
+import type { User } from './UserProfileModal';
+
+export interface TeamInterface{
+  id: string,
+  name: string,
+  description?: string,
+  created_by: User
+}
 
 interface TeamSidebarProps {
-  teams: any[];
+  teams: TeamInterface[];
   teamId?: string;
 }
 
 const TeamSidebar = ({ teams, teamId }: TeamSidebarProps) => {
   return (
-    <Box sx={{ width: '280px', borderRight: '1px solid #e0e0e0', bgcolor: '#ffffff', p: 1 }}>
-      <Typography variant="h6" sx={{ p: 2, fontWeight: 'bold', color: '#3d77cf' }}>Your Teams</Typography>
+    <Box sx={{ width: '280px', height: "90vh", borderRight: '1px solid #e0e0e0', bgcolor: '#ffffff', p: 1, overflow: "scroll" }}>
+      <Typography variant="h6" sx={{ p: 2, fontWeight: 'bold', color: '#3d77cf' }}>My Teams</Typography>
       <List>
         {teams?.map((team) => (
           <ListItem key={team.id} disablePadding>

@@ -1,7 +1,8 @@
 import { Card, CardContent, CardActions, Typography, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import type { TeamInterface } from "./TeamSidebar";
 
-const TeamCard = ({ team }) => {
+const TeamCard = ({ team }: {team: TeamInterface}) => {
     const navigate = useNavigate()
 
   return (
@@ -15,7 +16,7 @@ const TeamCard = ({ team }) => {
           Description: {team?.description || "No description provided"}
         </Typography>
 
-        <Typography variant="p" component="div">
+        <Typography variant="body1" component="div">
           Created-By: {team?.created_by?.name || "Unknown"}
         </Typography>
       </CardContent>

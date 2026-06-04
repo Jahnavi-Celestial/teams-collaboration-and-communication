@@ -10,7 +10,18 @@ const App = () => {
     if(localStorage.getItem('token')){
       socket.connect()
     }
+
+    socket.on('REFETCH_GLOBAL_DATA', () => {
+      client.refetchQueries({
+        include: 'active',
+      });
+    });
+
+    return () => {
+      socket.off('REFETCH_GLOBAL_DATA');
+    };
   }, [])
+
 
   return (
     <ApolloProvider client={client}>

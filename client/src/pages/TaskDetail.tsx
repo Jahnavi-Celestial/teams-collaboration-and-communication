@@ -1,10 +1,12 @@
-import { useQuery } from '@apollo/client/react';
-import { Container, Typography, Box, Button, CircularProgress } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { useMutation, useQuery } from '@apollo/client/react';
+import { Container, Typography, Box, Button } from '@mui/material';
+import { useNavigate, useParams } from 'react-router-dom';
 import { GetTaskDetail } from '../graphql/queries';
+import { DELETE_TASK } from '../graphql/mutations';
 
 const TaskDetail = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate()
 
     const { data, loading, error } = useQuery(GetTaskDetail, {
         variables: { taskId: id },
@@ -26,10 +28,16 @@ const TaskDetail = () => {
         }
     };
 
+    const [deleteAction] = useMutation(DELETE_TASK)
+
+    const handleDeleteTask = () => {
+        deleteAction({variables: {taskId: id}})
+        navigate(-1)
+    }
+
     if (loading) {
         return (
             <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", gap: 2, alignItems: "center", justifyContent: "center", color: "#3d77cf" }}>
-                <CircularProgress color="inherit" />
                 <Typography variant="h5">Loading...</Typography>
             </Box>
         );
@@ -46,7 +54,7 @@ const TaskDetail = () => {
     }
 
     return (
-        <Container maxWidth="lg" sx={{ minHeight: "100vh", py: { xs: 3, md: 5 }, px: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 4 }}>
+        <Container maxWidth="lg" sx={{ minHeight: "90vh", py: { xs: 3, md: 5 }, px: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 4 }}>
             <Box sx={{ width: "100%", display: "flex", flexDirection: { xs: "column", sm: "row" }, justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, gap: 3 }}>
                 <Typography variant="h4" sx={{ fontWeight: 'bold', fontSize: { xs: '1.75rem', sm: '2.125rem' }, wordBreak: "break-word" }}>
                     {taskdata.subject?.toUpperCase()}
@@ -67,6 +75,12 @@ const TaskDetail = () => {
                 <Typography variant="body1"><strong>Assigned To:</strong> {taskdata.assigned_to?.name}</Typography>
                 <Typography variant="body1"><strong>Assigned On:</strong> {formattedDate(taskdata.created_at)}</Typography>
                 <Typography variant="body1"><strong>Deadline:</strong> {formattedDate(taskdata.deadline)}</Typography>
+            </Box>
+
+            <Box sx={{ mt: 'auto', pt: 2 }}>
+                <Button variant="contained" size="large" sx={{ px: 4, py: 1.5, width: { xs: "100%", sm: "auto" } }} onClick={handleDeleteTask}>
+                    Delete Task
+                </Button>
             </Box>
 
             {taskdata.status === "MISSED_DEADLINE" && (

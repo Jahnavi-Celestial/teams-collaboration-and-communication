@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import TaskCard from "../components/TaskCard";
 import type { Task } from "./AssignedTask";
 
-const CreatedTask = () => {
+const CreatedTask = ({fromTeam}: {fromTeam: string}) => {
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [status, setStatus] = useState<string>("");
@@ -23,7 +23,7 @@ const CreatedTask = () => {
     };
   }, [search]);
   
-  const { data, loading } = useQuery(GetAllCreatedTask, {
+  const { data, loading, refetch } = useQuery(GetAllCreatedTask, {
     variables: { 
       userId, 
       teamId: null, 
@@ -31,6 +31,10 @@ const CreatedTask = () => {
       status: status || null 
     }
   });
+
+  useEffect(()=>{
+    refetch()
+  },[data])
 
   if (loading) {
     return (
@@ -43,9 +47,12 @@ const CreatedTask = () => {
 
   return (
     <Box sx={{ width: "100%", p: { xs: 2, sm: 4 }, boxSizing: "border-box" }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold" }}>
-        Created Tasks
-      </Typography>
+      {
+        fromTeam !== "team" &&
+        <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold" }}>
+            Created Tasks
+        </Typography>
+      }
       
       <Box sx={{ display: 'flex', flexDirection: { xs: "column", sm: "row" }, gap: 2, mb: 4 }}>
         <TextField

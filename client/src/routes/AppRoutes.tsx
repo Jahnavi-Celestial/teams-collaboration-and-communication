@@ -36,11 +36,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "assignedTask",
-        element: <AssignedTask />,
+        element: <AssignedTask  fromTeam="normal"/>,
       },
       {
         path: "createdTask",
-        element: <CreatedTask />,
+        element: <CreatedTask fromTeam="normal"/>,
       },
       {
         path: "/taskDetail/:id",

@@ -18,7 +18,7 @@ export interface Task{
   updated_at: string
 }
 
-const AssignedTask = () => {
+const AssignedTask = ({fromTeam}: {fromTeam: string}) => {
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [status, setStatus] = useState<string>("");
@@ -55,9 +55,12 @@ const AssignedTask = () => {
 
   return (
     <Box sx={{ width: "100%", p: { xs: 2, sm: 4 }, boxSizing: "border-box" }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold" }}>
-        Assigned Tasks
-      </Typography>
+      {
+        fromTeam !== "team" &&
+        <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold" }}>
+            Assigned Tasks
+        </Typography>
+      }
       
       <Box sx={{ display: 'flex', flexDirection: { xs: "column", sm: "row" }, gap: 2, mb: 4 }}>
         <TextField

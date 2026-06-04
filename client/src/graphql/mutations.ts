@@ -70,8 +70,8 @@ export const DeleteTeam = gql`
 `;
 
 export const AddMemberToTeam = gql`
-  mutation AddMemberToTeam($teamId: String!, $userId: String!) {
-    addMemberToTeam(teamId: $teamId, userId: $userId)
+  mutation AddMembersToTeam($teamId: String!, $userIds: [String!]!) {
+    addMembersToTeam(teamId: $teamId, userIds: $userIds)
   }
 `;
 
@@ -87,13 +87,19 @@ export const RemoveMemberFromTeam = gql`
   }
 `;
 
+export const ExitTeam = gql`
+  mutation ExitTeam($teamId: String!) {
+    exitTeam(teamId: $teamId)
+  }
+`;
+
 export const CREATE_TASK = gql`
   mutation CreateTask(
     $teamId: String!
     $subject: String!
     $description: String!
     $assignedToUserId: String!
-    $deadline: DateTime!
+    $deadline: DateTimeISO!
   ) {
     createTask(
       teamId: $teamId
@@ -131,17 +137,5 @@ export const CREATE_TASK = gql`
 export const DELETE_TASK = gql`
   mutation DeleteTask($taskId: String!) {
     deleteTask(taskId: $taskId)
-  }
-`;
-
-export const SendMessage = gql`
-  mutation SendMessage($teamId: String!, $content: String!) {
-    sendMessage(teamId: $teamId, content: $content)
-  }
-`;
-
-export const DeleteMessage = gql`
-  mutation DeleteMessage($messageId: String!) {
-    deleteMesssage(messageId: $messageId)
   }
 `;

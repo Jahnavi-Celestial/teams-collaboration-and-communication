@@ -1,9 +1,17 @@
-import { Arg, Authorized, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
+import {
+  Arg,
+  Authorized,
+  Ctx,
+  Int,
+  Mutation,
+  Query,
+  Resolver,
+} from "type-graphql";
 import { type MyContext } from "../middleware/authMiddleware.ts";
 import { Team } from "../entities/Team.ts";
 import { TeamMember, UserRole } from "../entities/TeamMember.ts";
 import { User } from "../entities/User.ts";
-import { ILike, In } from "typeorm";
+import { ILike, In, Not } from "typeorm";
 import { AppDataSource } from "../config/db.ts";
 
 @Resolver()
@@ -39,7 +47,8 @@ export class TeamResolver {
       });
 
       await tm.save(teamMembers);
-      return (await tm.findOne(Team, {
+
+      const newTeam = (await tm.findOne(Team, {
         where: { id: savedTeam.id },
         relations: {
           created_by: true,
@@ -48,6 +57,10 @@ export class TeamResolver {
           },
         },
       })) as Team;
+
+      context.io.emit("REFETCH_GLOBAL_DATA");
+
+      return newTeam
     });
   }
 
@@ -93,7 +106,7 @@ export class TeamResolver {
         },
       },
       order: { created_at: "DESC" },
-      skip: skip,
+      skip: skip, 
       take: take,
     });
 
@@ -141,7 +154,11 @@ export class TeamResolver {
       }),
     );
 
-    return await teamMemberRepo.save(newMembers);
+    const teamMember = await teamMemberRepo.save(newMembers);
+
+    context.io.emit("REFETCH_GLOBAL_DATA");
+
+    return teamMember
   }
 
   @Authorized()
@@ -167,6 +184,8 @@ export class TeamResolver {
 
     const result = await teamRepo.delete(teamId);
 
+    context.io.emit("REFETCH_GLOBAL_DATA");
+
     return result.affected !== 0;
   }
 
@@ -184,15 +203,41 @@ export class TeamResolver {
     return members;
   }
 
+  @Query(() => [User])
+  async userNotInTeam(
+    @Arg("teamId", () => String) teamId: string,
+    @Arg("search", () => String, { nullable: true }) search?: string,
+  ) {
+    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+    const userRepo = AppDataSource.getRepository(User);
+
+    const members = await teamMemberRepo.find({
+      where: { team: { id: teamId } },
+      relations: { user: true },
+    });
+
+    const memberUserIds = members.map((member) => member.user.id);
+
+    const whereCondition: any = {};
+    if (memberUserIds.length > 0) {
+      whereCondition.id = Not(In(memberUserIds));
+    }
+
+    if (search && search.trim() !== "") {
+      whereCondition.name = ILike(`%${search.trim()}%`);
+    }
+
+    return await userRepo.find({ where: whereCondition });
+  }
+
   @Authorized()
   @Mutation(() => Boolean)
-  async addMemberToTeam(
+  async addMembersToTeam(
     @Arg("teamId", () => String) teamId: string,
-    @Arg("userId", () => String) userId: string,
+    @Arg("userIds", () => [String]) userIds: string[],
     @Ctx() context: MyContext,
   ) {
     const currentUserId = context.user!.userId;
-
     const teamMemberRepo = AppDataSource.getRepository(TeamMember);
 
     const callerMember = await teamMemberRepo.findOne({
@@ -203,19 +248,30 @@ export class TeamResolver {
       throw new Error("Access Denied: Only admin can add members");
     }
 
-    const existing = await teamMemberRepo.findOne({
-      where: { team: { id: teamId }, user: { id: userId } },
+    const existingMembers = await teamMemberRepo.find({
+      where: { team: { id: teamId } },
+      relations: { user: true },
     });
 
-    if (existing) {
-      throw new Error("User already in team");
+    const existingUserIds = new Set(existingMembers.map((m) => m.user.id));
+
+    const newUserIdsToInsert = userIds.filter((id) => !existingUserIds.has(id));
+
+    if (newUserIdsToInsert.length === 0) {
+      throw new Error("All selected users are already in the team");
     }
 
-    await teamMemberRepo.save({
-      team: { id: teamId } as Team,
-      user: { id: userId } as User,
-      role: UserRole.MEMBER,
+    const newMembers = newUserIdsToInsert.map((id) => {
+      return teamMemberRepo.create({
+        team: { id: teamId } as Team,
+        user: { id: id } as User,
+        role: UserRole.MEMBER,
+      });
     });
+
+    await teamMemberRepo.save(newMembers);
+
+    context.io.emit("REFETCH_GLOBAL_DATA");
 
     return true;
   }
@@ -263,6 +319,8 @@ export class TeamResolver {
 
     await teamMemberRepo.update({ id: memberId }, { role: newRole });
 
+    context.io.emit("REFETCH_GLOBAL_DATA");
+
     return true;
   }
 
@@ -308,6 +366,50 @@ export class TeamResolver {
 
     await teamMemberRepo.delete({ id: memberId });
 
+    context.io.emit("REFETCH_GLOBAL_DATA");
+
     return true;
+  }
+
+  @Authorized()
+  @Mutation(() => Boolean)
+  async exitTeam(
+    @Arg("teamId", () => String) teamId: string,
+    @Ctx() context: MyContext,
+  ) {
+    const currentUserId = context.user!.userId;
+    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+
+    const callerMember = await teamMemberRepo.findOne({
+      where: { team: { id: teamId }, user: { id: currentUserId } },
+    });
+
+    if (!callerMember) {
+      throw new Error("You are not a member of this team");
+    }
+
+    if (callerMember.role === UserRole.ADMIN) {
+      const adminCount = await teamMemberRepo.count({
+        where: { team: { id: teamId } as Team, role: UserRole.ADMIN },
+      });
+      if (adminCount <= 1) {
+        throw new Error("You are the last admin. Assign another admin before exiting.");
+      }
+    }
+
+    await teamMemberRepo.delete({ id: callerMember.id });
+
+    context.io.emit("REFETCH_GLOBAL_DATA");
+
+    return true;
+  }
+
+  @Authorized()
+  @Query(() => User, { nullable: true })
+  async getMemberProfile(
+    @Arg("userId", () => String) userId: string,
+  ) {
+    const userRepo = AppDataSource.getRepository(User);
+    return await userRepo.findOne({ where: { id: userId } });
   }
 }

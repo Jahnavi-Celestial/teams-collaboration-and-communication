@@ -169,15 +169,25 @@ export const GetTaskDetail = gql`
   }
 `;
 
-export const GetAllMessages = gql`
-  query GetAllMessages($teamId: String!, $limit: Int, $offset: Int) {
-    getAllMessages(teamId: $teamId, limit: $limit, offset: $offset) {
-      id
-      content
-      created_at
-      sender {
+export const UserNotInTeam = gql`
+  query UserNotInTeam($teamId: String!, $search: String) {
+    userNotInTeam(teamId: $teamId, search: $search) {
         id
-      }
+        name
+        email
+        google_id
+        created_at
+        updated_at
+    }
+  }
+`;
+
+export const GetMemberProfile = gql`
+  query GetMemberProfile($userId: String!) {
+    getMemberProfile(userId: $userId) {
+      id
+      name
+      email
     }
   }
 `;

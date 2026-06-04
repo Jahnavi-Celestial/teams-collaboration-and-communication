@@ -196,11 +196,12 @@ const Navbar = () => {
         </MenuItem>
       </Menu>
 
-      <Dialog open={openDialog} onClose={close} fullWidth maxWidth="xs">
+      <Dialog open={openDialog} onClose={()=>setOpenDialog(false)} fullWidth maxWidth="xs">
         <DialogActions sx={{display: "flex", flexDirection: "column"}}>
           <Button
             onClick={() => {
-              navigate("/createdTask");
+              navigate("/assignedTask");
+              setOpenDialog(false);
             }}
           >
             Assigned Task
@@ -208,6 +209,7 @@ const Navbar = () => {
           <Button
             onClick={() => {
               navigate("/createdTask");
+              setOpenDialog(false);
             }}
           >
             Creatd Task

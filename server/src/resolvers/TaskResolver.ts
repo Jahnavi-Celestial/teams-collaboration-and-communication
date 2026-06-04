@@ -95,6 +95,8 @@ export class TaskResolver {
       order: { created_at: "DESC" },
     });
 
+    context.io.emit("REFETCH_GLOBAL_DATA");
+
     return tasks;
   }
 
@@ -143,6 +145,8 @@ export class TaskResolver {
       throw new Error("No task created by you");
     }
 
+    context.io.emit("REFETCH_GLOBAL_DATA");
+    
     return tasks;
   }
 

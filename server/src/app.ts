@@ -15,9 +15,10 @@ import { authChecker, MyContext } from "./middleware/authMiddleware.ts";
 import { TeamResolver } from "./resolvers/TeamResolver.ts";
 import { TaskResolver } from "./resolvers/TaskResolver.ts";
 import { AppDataSource } from "./config/db.ts";
-import { MessageResolver } from "./resolvers/MessageResolver.ts";
-import cors  from "cors";
-import * as crypto from "crypto";
+import cors from "cors";
+import jwt from "jsonwebtoken";
+import { registerMessageHandlers } from "./sockets/messageHandlers.ts";
+import { User } from "./entities/User.ts";
 
 dotenv.config();
 
@@ -27,7 +28,7 @@ async function main() {
     console.log("Database connected successfully");
 
     const schema = await buildSchema({
-      resolvers: [UserResolver, TeamResolver, TaskResolver, MessageResolver],
+      resolvers: [UserResolver, TeamResolver, TaskResolver],
       authChecker: authChecker,
       validate: false,
     });
@@ -41,7 +42,7 @@ async function main() {
         credentials: true,
         optionsSuccessStatus: 200,
       }),
-    )
+    );
     const httpServer = createServer(app);
 
     const io = new Server(httpServer, {
@@ -55,6 +56,22 @@ async function main() {
       },
     });
 
+    io.use((socket, next) => {
+      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(" ")[1];
+      
+      if (!token) {
+        return next(new Error("Authentication Error: Token missing"));
+      }
+
+      try {
+        const decoded = jwt.verify(token, String(process.env.JWT_SECRET));
+        (socket as any).user = decoded;
+        next();
+      } catch (err) {
+        return next(new Error("Authentication Error: Validation failed"));
+      }
+    });
+
     io.on("connection", (socket) => {
       console.log(`Socket connected: ${socket.id}`);
 
@@ -63,9 +80,15 @@ async function main() {
         console.log(`User ${socket.id} joined room: ${teamId}`);
       });
 
-      socket.on("typing", (data) => {
-        socket.to(data.teamId).emit("user_typing", data.senderId);
+      socket.on("typing", async (data) => {
+        console.log(data)
+        const userRepo = AppDataSource.getRepository(User)
+        const user = await userRepo.findOne({where: {id: data.senderId}})
+
+        socket.to(data.teamId).emit("user_typing", {id: data.senderId, name: user?.name});
       });
+
+      registerMessageHandlers(io, socket);
 
       socket.on("disconnect", () => {
         console.log(`Socket disconnected: ${socket.id}`);
@@ -85,7 +108,7 @@ async function main() {
           wsServer.emit("connection", ws, request);
         });
       }
-     });
+    });
 
     const server = new ApolloServer({
       schema,
@@ -109,13 +132,7 @@ async function main() {
       "/graphql",
       express.json(),
       expressMiddleware(server, {
-        context: async ({
-          req,
-          res,
-        }: {
-          req: any;
-          res: any;
-        }): Promise<MyContext> => ({ req, res, io }),
+        context: async ({ req, res }: { req: any; res: any }): Promise<MyContext> => ({ req, res, io }),
       }),
     );
 
