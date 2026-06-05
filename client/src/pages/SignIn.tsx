@@ -92,7 +92,7 @@ export default function Sign() {
         {isLogin ? "Sign In" : "Create Account"}
       </DialogTitle>
       <DialogContent>
-        <Box display="flex" flexDirection="column" gap={2}>
+        <Box sx={{display: "flex", flexDirection: "column", gap: 2}}>
           {!isLogin && (
             <TextField
               label="Name"

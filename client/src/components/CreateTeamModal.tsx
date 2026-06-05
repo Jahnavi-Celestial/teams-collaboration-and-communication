@@ -42,8 +42,8 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
 
   const [createTeam] = useMutation(createTeamWithMembers, {
     update(cache) {
-        cache.evict({ fieldName: "getTeams" });
-        cache.gc();
+      cache.evict({ fieldName: "getTeams" });
+      cache.gc();
     },
     onCompleted: () => {
       onClose();
@@ -68,7 +68,7 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
     });
   };
 
-  const options = data?.getAllUsers || [];
+  const options = (data as any)?.getAllUsers || [];
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -112,11 +112,6 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
           loading={loading}
           getOptionLabel={(option) => option.name}
           isOptionEqualToValue={(option, value) => option.id === value.id}
-          slotProps={{
-            option: {
-              key: (option: User) => option.id,
-            },
-          }}
           value={selectedUsers}
           onChange={(_, newValue) => {
             setSelectedUsers(newValue);
@@ -128,28 +123,33 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
           renderOption={(props, option) => {
             const { key, ...optionProps } = props;
             return (
-              <li key={option.id} {...optionProps}>
+              <li key={key} {...optionProps}>
                 {option.name}
               </li>
             );
           }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Search User"
-              InputProps={{
-                ...params?.InputProps,
-                endAdornment: (
-                  <>
-                    {loading ? (
-                      <CircularProgress color="inherit" size={20} />
-                    ) : null}
-                    {params?.InputProps?.endAdornment}
-                  </>
-                ),
-              }}
-            />
-          )}
+          renderInput={(params) => {
+            const safeParams = params as any;
+            return (
+              <TextField
+                {...params}
+                label="Search User"
+                slotProps={{
+                  input: {
+                    ...safeParams?.slotProps?.input,
+                    endAdornment: (
+                      <>
+                        {loading ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {safeParams?.slotProps?.input?.endAdornment}
+                      </>
+                    ),
+                  },
+                }}
+              />
+            );
+          }}
         />
       </DialogContent>
       <DialogActions>

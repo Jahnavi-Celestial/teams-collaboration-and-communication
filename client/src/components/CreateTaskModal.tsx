@@ -132,11 +132,6 @@ const CreateTaskModal = ({
           loading={membersLoading}
           getOptionLabel={(option: TeamMemberNode) => `${option.user.name}`}
           isOptionEqualToValue={(option, value) => option.user.id === value.user.id}
-          slotProps={{
-            option: {
-              key: (option: TeamMemberNode) => option.user.id,
-            },
-          }}
           value={assignedMember}
           onChange={(_event, newValue: TeamMemberNode | null) => {
             setAssignedMember(newValue);
@@ -148,7 +143,7 @@ const CreateTaskModal = ({
           renderOption={(props, option) => {
             const { key, ...optionProps } = props;
             return (
-              <li key={option.user.id} {...optionProps}>
+              <li key={key} {...optionProps}>
                 {option.user.name}
               </li>
             );
@@ -159,14 +154,16 @@ const CreateTaskModal = ({
               label="Assigned To"
               variant="outlined"
               required
-              InputProps={{
-                ...params?.InputProps,
+              slotProps={{
+                input:{
+                ...params?.slotProps.input,
                 endAdornment: (
                   <>
                     {membersLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                    {params?.InputProps?.endAdornment}
+                    {params?.slotProps.input?.endAdornment}
                   </>
                 ),
+              }
               }}
             />
           )}
@@ -182,11 +179,13 @@ const CreateTaskModal = ({
           helperText={dateError}
           value={deadline}
           onChange={handleDateChange}
-          InputLabelProps={{ 
-            shrink: true 
-          }}
-          inputProps={{ 
-            min: todayStr 
+          slotProps={{
+            inputLabel: {
+                shrink: true
+            },
+            htmlInput: {
+                min: todayStr
+            }
           }}
           sx={{
             "& input::-webkit-calendar-picker-indicator": {

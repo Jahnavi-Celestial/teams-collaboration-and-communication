@@ -403,8 +403,14 @@ const TaskDetail = () => {
             variant="outlined"
             value={newDeadlineInput}
             onChange={(e) => setNewDeadlineInput(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ min: getTodayString() }}
+            slotProps={{
+                inputLabel: {
+                    shrink: true
+                },
+                htmlInput: {
+                    min: getTodayString()
+                }
+            }}
             error={isSelectedDateInvalid() && !!newDeadlineInput}
             helperText={
               isSelectedDateInvalid() && !!newDeadlineInput

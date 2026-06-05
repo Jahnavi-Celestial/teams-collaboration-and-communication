@@ -12,12 +12,13 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useChat } from "../context/ChatContext";
+import type { TeamInterface } from "./TeamSidebar";
 
 interface ChatHeaderProps {
   teamName?: string;
   typingUser: string | null;
   isMobile: boolean;
-  teams: any[];
+  teams: TeamInterface[];
   teamId?: string;
   activeTab: number;
   setActiveTab: (val: number) => void;

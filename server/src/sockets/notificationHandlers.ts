@@ -229,7 +229,7 @@ export const registerNotificationsHandlers = (io: Server, socket: Socket) => {
       task.deadline = new Date(data.newDeadline);
       task.status = TaskStatus.PENDING;
       task.deadline_unlocked = true;
-      task.deadline_missed_at = undefined;
+      task.deadline_missed_at = new Date();;
       await taskRepo.save(task);
 
       io.to(task.team.id).emit("task_deadline_updated_broadcast", { taskId: data.taskId, deadline: data.newDeadline });

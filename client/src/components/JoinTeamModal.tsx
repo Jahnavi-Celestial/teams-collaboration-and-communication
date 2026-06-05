@@ -25,19 +25,19 @@ interface Team {
 
 const JoinTeamModal = ({ open, onClose }: Props) => {
   const [selectedTeams, setSelectedTeams] = useState<Team[]>([]);
-  
+
   const [inputValue, setInputValue] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const { data, loading } = useQuery(GetAllPublicTeams, {
     variables: { searchTerm },
-    skip: !open, 
+    skip: !open,
   });
 
   const [joinTeams] = useMutation(JoinTeams, {
     update(cache) {
-        cache.evict({ fieldName: "getTeams" });
-        cache.gc();
+      cache.evict({ fieldName: "getTeams" });
+      cache.gc();
     },
     onCompleted: () => {
       onClose();
@@ -51,7 +51,7 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
     },
   });
 
-  const handleJoin = ():void => {
+  const handleJoin = (): void => {
     if (selectedTeams.length === 0) return;
     joinTeams({ variables: { teamIds: selectedTeams.map((t) => t.id) } });
   };
@@ -75,11 +75,6 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
           options={options}
           loading={loading}
           getOptionLabel={(option) => option.name}
-          slotProps={{
-            option: {
-              key: (option: Team) => option.id,
-            }
-          }}
           value={selectedTeams}
           onChange={(_, newValue) => {
             setSelectedTeams(newValue);
@@ -91,28 +86,33 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
           renderOption={(props, option) => {
             const { key, ...optionProps } = props;
             return (
-              <li key={option.id} {...optionProps}>
+              <li key={key} {...optionProps}>
                 {option.name}
               </li>
             );
           }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Search & Select Teams"
-              InputProps={{
-                ...params?.InputProps,
-                endAdornment: (
-                  <>
-                    {loading ? (
-                      <CircularProgress color="inherit" size={20} />
-                    ) : null}
-                    {params?.InputProps?.endAdornment}
-                  </>
-                ),
-              }}
-            />
-          )}
+          renderInput={(params) => {
+            const safeParams = params as any;
+            return (
+              <TextField
+                {...params}
+                label="Search & Select Teams"
+                slotProps={{
+                  input: {
+                    ...safeParams?.slotProps?.input,
+                    endAdornment: (
+                      <>
+                        {loading ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {safeParams?.slotProps?.input?.endAdornment}
+                      </>
+                    ),
+                  },
+                }}
+              />
+            );
+          }}
         />
       </DialogContent>
       <DialogActions>

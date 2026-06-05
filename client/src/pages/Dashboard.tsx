@@ -69,7 +69,7 @@ const Dashboard = () => {
                             <Pagination 
                                 count={dynamicTotalPages} 
                                 page={page} 
-                                onChange={(e,v)=>setPage(v)} 
+                                onChange={(_,v)=>setPage(v)} 
                                 color="primary"
                                 shape="rounded"
                                 variant="outlined"

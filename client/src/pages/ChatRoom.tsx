@@ -61,7 +61,7 @@ const ChatRoom = () => {
   });
 
   const { userId } = useAuth();
-  const currentUserId = userId;
+  const currentUserId = userId as string;
 
   const { data: roleMembersData } = useQuery(GetMembersOfTeam, {
     variables: { teamId: teamId || "" },
@@ -333,7 +333,7 @@ const ChatRoom = () => {
                   "&:hover": { bgcolor: "#5792eb" },
                 }}
               >
-                <SendIcon size="small" />
+                <SendIcon sx={{size: "small"}} />
               </IconButton>
             </Box>
           </>
