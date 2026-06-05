@@ -1,4 +1,5 @@
 import { useState } from "react";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import {
   AppBar,
   Toolbar,
@@ -16,35 +17,57 @@ import {
   MenuItem,
   Dialog,
   DialogActions,
+  Badge,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useNavigate } from "react-router-dom";
 import CreateTeamModal from "./CreateTeamModal";
 import JoinTeamModal from "./JoinTeamModal";
 import { useAuth } from "../context/AuthContext";
+import { useChat } from "../context/ChatContext";
 
 const Navbar = () => {
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
   const [isJoinOpen, setIsJoinOpen] = useState<boolean>(false);
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const[openDialog, setOpenDialog] = useState<boolean>(false)
+  const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null);
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [showLogout, setShowLogout] = useState<boolean>(false);
   const navigate = useNavigate();
   const { logoutUser } = useAuth();
+  const { notifications, markNotificationRead } = useChat();
 
-  const userInitial = JSON.parse(
-    localStorage.getItem("user") || "null",
-  )?.email[0]?.toUpperCase();
+  const unreadNotifications = notifications.filter((n) => !n.is_read);
 
-  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>): void => {
+  const userInitial =
+    JSON.parse(
+      localStorage.getItem("user") || "null",
+    )?.email?.[0]?.toUpperCase() || "U";
+
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
-
-  const handleCloseMenu = (): void => {
+  const handleCloseMenu = () => {
     setAnchorEl(null);
+  };
+
+  const handleNotifClick = (n: any) => {
+    markNotificationRead(n.id);
+    setNotifAnchorEl(null);
+
+    console.log(n);
+
+    const targetTaskId = n.task_id;
+    const targetTeamId = n.team_id;
+
+    if (targetTaskId) {
+      navigate(`/taskDetail/${targetTaskId}`);
+    } else {
+      navigate(`/team/${targetTeamId}`);
+    }
   };
 
   return (
@@ -62,16 +85,28 @@ const Navbar = () => {
         <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
           <Typography
             variant="h6"
-            sx={{ fontWeight: "bold" }}
+            sx={{ fontWeight: "bold", cursor: "pointer" }}
             onClick={() => navigate("/")}
           >
             TeamChat
           </Typography>
-
           {isMobile ? (
-            <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
-              <MenuIcon />
-            </IconButton>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <IconButton
+                onClick={(e) => setNotifAnchorEl(e.currentTarget)}
+                sx={{ color: "white" }}
+              >
+                <Badge badgeContent={unreadNotifications.length} color="error">
+                  <NotificationsIcon sx={{ fontSize: "30px" }} />
+                </Badge>
+              </IconButton>
+              <IconButton
+                onClick={() => setMobileOpen(!mobileOpen)}
+                sx={{ color: "white" }}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Box>
           ) : (
             <>
               <Box sx={{ display: "flex", gap: 3 }}>
@@ -91,23 +126,70 @@ const Navbar = () => {
                   Tasks
                 </Button>
               </Box>
-              <Avatar
-                sx={{ bgcolor: "white", color: "#3d77cf", cursor: "pointer" }}
-                onClick={() => {
-                  setShowLogout(!showLogout);
-                }}
-              >
-                {userInitial}
-              </Avatar>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <IconButton
+                  onClick={(e) => setNotifAnchorEl(e.currentTarget)}
+                  sx={{ color: "white" }}
+                >
+                  <Badge
+                    badgeContent={unreadNotifications.length}
+                    color="error"
+                  >
+                    <NotificationsIcon sx={{ fontSize: "30px" }} />
+                  </Badge>
+                </IconButton>
+                <Avatar
+                  sx={{ bgcolor: "white", color: "#3d77cf", cursor: "pointer" }}
+                  onClick={() => setShowLogout(!showLogout)}
+                >
+                  {userInitial}
+                </Avatar>
+              </Box>
             </>
           )}
         </Toolbar>
       </AppBar>
+
+      <Menu
+        anchorEl={notifAnchorEl}
+        open={Boolean(notifAnchorEl)}
+        onClose={() => setNotifAnchorEl(null)}
+        PaperProps={{ sx: { width: 320, maxHeight: 400 } }}
+        sx={{ zIndex: 11000 }}
+      >
+        {notifications.length === 0 ? (
+          <MenuItem disabled>No notifications</MenuItem>
+        ) : (
+          notifications.map((n) => (
+            <MenuItem
+              key={n.id}
+              onClick={() => handleNotifClick(n)}
+              sx={{
+                whiteSpace: "normal",
+                bgcolor: n.is_read ? "transparent" : "#f0f7ff",
+              }}
+            >
+              <Box>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: n.is_read ? "normal" : "bold" }}
+                >
+                  {n.title}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {n.body}
+                </Typography>
+              </Box>
+            </MenuItem>
+          ))
+        )}
+      </Menu>
+
       {showLogout && (
         <Box sx={{ position: "absolute", right: 0, zIndex: 1000 }}>
           <Button
             onClick={() => logoutUser()}
-            sx={{ bgcolor: "white", color: "#3d77cf" }}
+            sx={{ bgcolor: "white", color: "#3d77cf", boxShadow: 2 }}
           >
             Logout
           </Button>
@@ -146,7 +228,7 @@ const Navbar = () => {
           <ListItem sx={{ justifyContent: "center" }}>
             <Button
               onClick={() => {
-                setOpenDialog(!openDialog)
+                setOpenDialog(!openDialog);
                 setMobileOpen(false);
               }}
               sx={{ width: "100%", border: "1px solid" }}
@@ -168,7 +250,10 @@ const Navbar = () => {
         </List>
       </Drawer>
 
-      <CreateTeamModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      <CreateTeamModal
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+      />
       <JoinTeamModal open={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
 
       <Menu
@@ -176,7 +261,7 @@ const Navbar = () => {
         open={Boolean(anchorEl)}
         onClose={handleCloseMenu}
         slotProps={{ list: { onMouseLeave: handleCloseMenu } }}
-        sx={{zIndex: 10000}}
+        sx={{ zIndex: 10000 }}
       >
         <MenuItem
           onClick={() => {
@@ -196,8 +281,13 @@ const Navbar = () => {
         </MenuItem>
       </Menu>
 
-      <Dialog open={openDialog} onClose={()=>setOpenDialog(false)} fullWidth maxWidth="xs">
-        <DialogActions sx={{display: "flex", flexDirection: "column"}}>
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogActions sx={{ display: "flex", flexDirection: "column" }}>
           <Button
             onClick={() => {
               navigate("/assignedTask");
@@ -212,7 +302,7 @@ const Navbar = () => {
               setOpenDialog(false);
             }}
           >
-            Creatd Task
+            Created Task
           </Button>
         </DialogActions>
       </Dialog>

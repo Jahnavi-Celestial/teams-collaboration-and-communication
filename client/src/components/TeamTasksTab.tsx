@@ -9,6 +9,7 @@ import { GetMembersOfTeam } from "../graphql/queries";
 import { CREATE_TASK } from "../graphql/mutations";
 import AssignedTask from "../pages/AssignedTask";
 import CreatedTask from "../pages/CreatedTask";
+import { useAuth } from "../context/AuthContext";
 
 interface TeamTasksTabProps {
   teamId: string | undefined;
@@ -18,6 +19,7 @@ type TaskViewMode = "selection" | "view";
 type TaskSubViewMode = "none" | "assigned" | "created";
 
 const TeamTasksTab: React.FC<TeamTasksTabProps> = ({ teamId }) => {
+  const {userId} = useAuth()
   const [viewMode, setViewMode] = useState<TaskViewMode>("selection");
   const [subView, setSubView] = useState<TaskSubViewMode>("none");
   const [openModal, setOpenModal] = useState(false);
@@ -31,7 +33,7 @@ const TeamTasksTab: React.FC<TeamTasksTabProps> = ({ teamId }) => {
 
   const [createTask, { loading: creatingTask }] = useMutation(CREATE_TASK);
 
-  const teamMembersList: TeamMemberNode[] = membersData?.getMembersOfTeam || [];
+  const teamMembersList: TeamMemberNode[] = membersData?.getMembersOfTeam.filter(m=> (m.user.id !== userId)) || [];
 
   const handleCreateTaskSubmit = async (formData: {
     subject: string;
@@ -125,7 +127,7 @@ const TeamTasksTab: React.FC<TeamTasksTabProps> = ({ teamId }) => {
               <Button size="small" variant="text" sx={{ mt: 2 }} onClick={() => setSubView("none")}>
                 Go Back to Sub-options
               </Button>
-              <AssignedTask fromTeam="team"/>
+              <AssignedTask fromTeam="team" teamId={teamId}/>
             </Box>
           )}
 
@@ -134,7 +136,7 @@ const TeamTasksTab: React.FC<TeamTasksTabProps> = ({ teamId }) => {
               <Button size="small" variant="text" sx={{ mt: 2 }} onClick={() => setSubView("none")}>
                 Go Back to Sub-options
               </Button>
-              <CreatedTask fromTeam="team" />
+              <CreatedTask fromTeam="team" teamId={teamId}/>
             </Box>
           )}
         </Box>

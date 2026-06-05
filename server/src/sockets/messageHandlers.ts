@@ -2,8 +2,10 @@ import { Server, Socket } from "socket.io";
 import { AppDataSource } from "../config/db.ts";
 import { Message } from "../entities/Message.ts";
 import { TeamMember } from "../entities/TeamMember.ts";
+import { UserTeamChatRead } from "../entities/UserTeamChatRead.ts";
 import * as crypto from "crypto";
 import { User } from "../entities/User.ts";
+import { MoreThan } from "typeorm";
 
 interface SendMessagePayload {
   teamId: string;
@@ -28,6 +30,19 @@ export const registerMessageHandlers = (io: Server, socket: Socket) => {
       const { teamId, content } = data;
       if (!userId || !teamId || !content) {
         socket.emit("error", { message: "Invalid message payload parameters" });
+        return;
+      }
+
+      const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+      const isStillMember = await teamMemberRepo.findOne({
+        where: { team: { id: teamId }, user: { id: userId } },
+      });
+
+      if (!isStillMember) {
+        socket.emit("error", {
+          message: "Access Denied: You are no longer a member of this team.",
+        });
+        socket.leave(teamId);
         return;
       }
 
@@ -62,6 +77,40 @@ export const registerMessageHandlers = (io: Server, socket: Socket) => {
         content,
         created_at: newMessage.created_at ? newMessage.created_at.toISOString() : new Date().toISOString(),
       });
+
+      const chatReadRepo = AppDataSource.getRepository(UserTeamChatRead);
+
+      const teamMembers = await teamMemberRepo.find({
+        where: { team: { id: teamId } },
+        relations: { user: true },
+      });
+
+      for (const row of teamMembers) {
+        if (row.user.id === userId) continue;
+
+        const readRecord = await chatReadRepo.findOne({
+          where: { user: { id: row.user.id }, team: { id: teamId } },
+        });
+
+        let unreadCount = 0;
+        if (!readRecord) {
+          unreadCount = await messageRepo.count({
+            where: { team: { id: teamId } },
+          });
+        } else {
+          unreadCount = await messageRepo.count({
+            where: {
+              team: { id: teamId },
+              created_at: MoreThan(readRecord.last_read_at),
+            },
+          });
+        }
+
+        io.to(`user_${row.user.id}`).emit("unread_count_update", {
+          teamId,
+          unreadCount,
+        });
+      }
     } catch (error: any) {
       socket.emit("error", { message: error.message || "Failed to deliver message" });
     }
@@ -167,4 +216,34 @@ export const registerMessageHandlers = (io: Server, socket: Socket) => {
       socket.emit("error", { message: error.message || "Failed to retrieve history logs" });
     }
   });
+
+  socket.on("kick_user_from_room", async (data: { targetUserId: string; teamId: string }) => {
+      try {
+        const { targetUserId, teamId } = data;
+        if (!userId || !targetUserId || !teamId) return;
+
+        const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+        const member = await teamMemberRepo.findOne({
+          where: { user: { id: userId }, team: { id: teamId } },
+        });
+
+        if (member?.role?.toUpperCase() !== "ADMIN") {
+          socket.emit("error", {
+            message: "Unauthorized kick command execution",
+          });
+          return;
+        }
+
+        io.to(teamId).emit("force_leave_team", {
+          teamId: String(teamId),
+          kickedUserId: String(targetUserId), 
+        });
+
+        io.to(`user_${targetUserId}`).socketsLeave(teamId);
+
+      } catch (error: any) {
+        socket.emit("error", { message: "Failed to remove member socket context" });
+      }
+    },
+  );
 };

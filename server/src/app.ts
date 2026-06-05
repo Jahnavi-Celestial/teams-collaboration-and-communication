@@ -19,6 +19,8 @@ import cors from "cors";
 import jwt from "jsonwebtoken";
 import { registerMessageHandlers } from "./sockets/messageHandlers.ts";
 import { User } from "./entities/User.ts";
+import { registerNotificationsHandlers } from "./sockets/notificationHandlers.ts";
+import { initDeadlineCron } from "./cron/deadlineCron.ts";
 
 dotenv.config();
 
@@ -56,9 +58,11 @@ async function main() {
       },
     });
 
+    initDeadlineCron(io);
+
     io.use((socket, next) => {
       const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(" ")[1];
-      
+
       if (!token) {
         return next(new Error("Authentication Error: Token missing"));
       }
@@ -75,9 +79,37 @@ async function main() {
     io.on("connection", (socket) => {
       console.log(`Socket connected: ${socket.id}`);
 
-      socket.on("join_team", (teamId: string) => {
+      const authUserId = (socket as any).user?.userId;
+      if (authUserId) {
+        socket.join(`user_${authUserId}`);
+      }
+
+      socket.on("join_team", async (teamId: string) => {
+        if (!authUserId) return;
+
+        for (const room of socket.rooms) {
+          if (room !== socket.id && room !== `user_${authUserId}`) {
+            socket.leave(room);
+            console.log(`User ${socket.id} left room: ${room}`);
+          }
+        }
+
         socket.join(teamId);
         console.log(`User ${socket.id} joined room: ${teamId}`);
+
+        try {
+          await AppDataSource.query(
+            `INSERT INTO user_team_chat_read (user_id, team_id, last_read_at)
+              VALUES ($1, $2, CURRENT_TIMESTAMP)
+              ON CONFLICT (user_id, team_id) 
+              DO UPDATE SET last_read_at = CURRENT_TIMESTAMP`,
+            [authUserId, teamId],
+          );
+          
+          socket.emit("unread_count_update", { teamId, unreadCount: 0 });
+        } catch (err) {
+          console.error("Failed to update read status:", err);
+        }
       });
 
       socket.on("typing", async (data) => {
@@ -89,6 +121,7 @@ async function main() {
       });
 
       registerMessageHandlers(io, socket);
+      registerNotificationsHandlers(io, socket);
 
       socket.on("disconnect", () => {
         console.log(`Socket disconnected: ${socket.id}`);

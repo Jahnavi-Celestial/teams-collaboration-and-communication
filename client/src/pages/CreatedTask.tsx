@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import TaskCard from "../components/TaskCard";
 import type { Task } from "./AssignedTask";
 
-const CreatedTask = ({fromTeam}: {fromTeam: string}) => {
+const CreatedTask = ({fromTeam, teamId}: {fromTeam: string, teamId: string | undefined}) => {
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [status, setStatus] = useState<string>("");
@@ -26,7 +26,7 @@ const CreatedTask = ({fromTeam}: {fromTeam: string}) => {
   const { data, loading, refetch } = useQuery(GetAllCreatedTask, {
     variables: { 
       userId, 
-      teamId: null, 
+      teamId: teamId !== undefined ? teamId : null, 
       searchTerm: debouncedSearch || null, 
       status: status || null 
     }

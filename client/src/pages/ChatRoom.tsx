@@ -1,29 +1,42 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { Box, TextField, IconButton, useMediaQuery, useTheme } from "@mui/material";
-import SendIcon from "@mui/icons-material/Send";
+import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "@apollo/client/react";
-import { useChat } from "../context/ChatContext";
-import { GetMembersOfTeam, GetTeams } from "../graphql/queries";
+import {
+  Box,
+  useTheme,
+  useMediaQuery,
+  TextField,
+  IconButton,
+} from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
+import { GetTeams, GetMembersOfTeam } from "../graphql/queries";
 import { useAuth } from "../context/AuthContext";
+import { useChat } from "../context/ChatContext";
 import TeamSidebar from "../components/TeamSidebar";
 import ChatHeader from "../components/ChatHeader";
 import MessageArea from "../components/MessageArea";
-import MemberList from "../components/MemberList";
 import TeamTasksTab from "../components/TeamTasksTab";
-import type { Member } from "../components/UserProfileModal";
+import MemberList from "../components/MemberList";
 
-export interface MessageInterface{
-    id: string,
-    sender: {
-        id: string,
-        name?: string;
-    },
-    content: string,
-    created_at: string,
+export interface MessageInterface {
+  id: string;
+  sender: {
+    id: string;
+    name?: string;
+  };
+  content: string;
+  created_at: string;
+}
+
+interface Member {
+  role: string;
+  user: {
+    id: string;
+  };
 }
 
 const ChatRoom = () => {
+  const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
   const [messages, setMessages] = useState<MessageInterface[]>([]);
   const [input, setInput] = useState<string>("");
@@ -32,19 +45,19 @@ const ChatRoom = () => {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<number>(0);
-
   const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState<boolean>(false);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const socket = useChat();
+  const { socket, markAsRead } = useChat();
   const typingTimeoutRef = useRef<any>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const loadingMoreRef = useRef<boolean>(false);
 
   const { data: teamsData } = useQuery(GetTeams, {
     variables: { skip: 0, take: 100 },
-    fetchPolicy: "cache-and-network"
+    fetchPolicy: "cache-and-network",
   });
 
   const { userId } = useAuth();
@@ -53,26 +66,30 @@ const ChatRoom = () => {
   const { data: roleMembersData } = useQuery(GetMembersOfTeam, {
     variables: { teamId: teamId || "" },
     skip: !teamId,
-    fetchPolicy: "network-only"
+    fetchPolicy: "network-only",
   });
 
-  const currentTeam = teamsData?.getTeams?.find((t: any) => String(t.id) === String(teamId));
+  const currentTeam = teamsData?.getTeams?.find(
+    (t: any) => String(t.id) === String(teamId),
+  );
 
   useEffect(() => {
     const freshMembersList = roleMembersData?.getMembersOfTeam || [];
-    
+
     if (freshMembersList.length === 0 || !currentUserId) {
       setCurrentUserIsAdmin(false);
       return;
     }
 
     const matchedMember = freshMembersList.find(
-      (m: Member) => String(m.user?.id) === String(currentUserId)
+      (m: Member) => String(m.user?.id) === String(currentUserId),
     );
 
     if (matchedMember) {
-      const roleStr = String(matchedMember.role || "").trim().toUpperCase();
-      
+      const roleStr = String(matchedMember.role || "")
+        .trim()
+        .toUpperCase();
+
       if (roleStr === "ADMIN") {
         setCurrentUserIsAdmin(true);
       } else {
@@ -82,6 +99,10 @@ const ChatRoom = () => {
       setCurrentUserIsAdmin(false);
     }
   }, [roleMembersData, currentUserId]);
+
+  useEffect(() => {
+    loadingMoreRef.current = loadingMore;
+  }, [loadingMore]);
 
   useEffect(() => {
     if (!teamId) return;
@@ -94,10 +115,41 @@ const ChatRoom = () => {
     socket.emit("join_team", teamId);
     socket.emit("get_all_messages", { teamId, limit: 20, offset: 0 });
 
-    socket.on("all_messages_fetched", (data: { teamId: string; messages: MessageInterface[] }) => {
+    const handleForceLeave = (data: {
+      teamId: string;
+      kickedUserId: string;
+    }) => {
+      if (!currentUserId || !data.kickedUserId) {
+        console.log(
+          "Verification failed: One of the User IDs is missing or undefined.",
+        );
+        return;
+      }
+
+      const targetKickedId = String(data.kickedUserId).trim();
+      const identityOfMine = String(currentUserId).trim();
+
+      if (targetKickedId === identityOfMine) {
+        if (String(data.teamId) === String(teamId)) {
+          alert("You have been removed from this team by an admin.");
+          setMessages([]);
+          navigate("/", { replace: true });
+        }
+      } else {
+        console.log(
+          `User ${targetKickedId} was removed. I am ${identityOfMine}, so I will stay in the room.`,
+        );
+      }
+    };
+    socket.on("force_leave_team", handleForceLeave);
+
+    const handleAllMessages = (data: {
+      teamId: string;
+      messages: MessageInterface[];
+    }) => {
       if (data.teamId !== teamId) return;
 
-      if (loadingMore) {
+      if (loadingMoreRef.current) {
         if (chatContainerRef.current) {
           const previousScrollHeight = chatContainerRef.current.scrollHeight;
           setMessages((prev) => [...data.messages, ...prev]);
@@ -118,46 +170,73 @@ const ChatRoom = () => {
 
         setTimeout(() => {
           if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            chatContainerRef.current.scrollTop =
+              chatContainerRef.current.scrollHeight;
           }
         }, 100);
       }
-    });
+    };
 
-    socket.on("receive_message", (newMessage: MessageInterface) => {
+    const handleReceiveMessage = (newMessage: MessageInterface) => {
       setMessages((prev) => [...prev, newMessage]);
+
+      if (activeTab === 0) {
+        markAsRead(teamId);
+      }
+
       setTimeout(() => {
         if (chatContainerRef.current) {
-          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          chatContainerRef.current.scrollTop =
+            chatContainerRef.current.scrollHeight;
         }
       }, 50);
-    });
+    };
 
-    socket.on("message_deleted", (data: { messageId: string }) => {
+    const handleMessageDeleted = (data: { messageId: string }) => {
       setMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
-    });
+    };
 
-    socket.on("user_typing", (data: {id: string, name: string}) => {
+    const handleUserTyping = (data: { id: string; name: string }) => {
       const remoteSenderId =
-        typeof data === "object" && data !== null
-          ? data.id
-          : data;
-      
-      
+        typeof data === "object" && data !== null ? data.id : data;
+
       if (remoteSenderId && remoteSenderId !== currentUserId) {
-        setTypingUser(`${data.name}... is typing`)
+        setTypingUser(`${data.name}... is typing`);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2500);
       }
-    });
+    };
+
+    const handleTeamDeletedLive = (data: { teamId: string }) => {
+      if (String(data.teamId) === String(teamId)) {
+        alert("This team has been deleted by the admin.");
+        setMessages([]);
+        navigate("/", { replace: true });
+      }
+    };
+
+    socket.off("force_leave_team", handleForceLeave);
+    socket.on("all_messages_fetched", handleAllMessages);
+    socket.on("receive_message", handleReceiveMessage);
+    socket.on("message_deleted", handleMessageDeleted);
+    socket.on("user_typing", handleUserTyping);
+    socket.on("team_deleted_live", handleTeamDeletedLive);
 
     return () => {
-      socket.off("all_messages_fetched");
-      socket.off("receive_message");
-      socket.off("message_deleted");
-      socket.off("user_typing");
+      socket.off("all_messages_fetched", handleAllMessages);
+      socket.off("receive_message", handleReceiveMessage);
+      socket.off("message_deleted", handleMessageDeleted);
+      socket.off("user_typing", handleUserTyping);
+      socket.off("team_deleted_live", handleTeamDeletedLive);
     };
-  }, [teamId, socket, currentUserId, loadingMore]);
+    
+  }, [teamId, socket, currentUserId, navigate]);
+
+  useEffect(() => {
+    if (teamId && activeTab === 0) {
+      markAsRead(teamId);
+    }
+  }, [activeTab, teamId]);
 
   const handleScroll = async () => {
     if (!chatContainerRef.current || loadingMore || !hasMore || !teamId) return;

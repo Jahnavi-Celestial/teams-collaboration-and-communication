@@ -1,5 +1,5 @@
 import { Field, ID, ObjectType, registerEnumType } from "type-graphql";
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Team } from "./Team.ts";
 import { User } from "./User.ts";
 import { DeadlineExtensionRequest } from "./DeadLineExtensionRequest.ts";
@@ -40,6 +40,10 @@ export class Task{
     @Field(()=>Date)
     @CreateDateColumn({type: 'timestamptz'})
     created_at!: Date;
+
+    @Field(()=>Date)
+    @UpdateDateColumn({type: 'timestamptz'})
+    updated_at!: Date;
 
     @Field(()=>User)
     @ManyToOne(()=>User, {onDelete: 'SET NULL'})

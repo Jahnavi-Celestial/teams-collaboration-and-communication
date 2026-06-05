@@ -18,7 +18,7 @@ export interface Task{
   updated_at: string
 }
 
-const AssignedTask = ({fromTeam}: {fromTeam: string}) => {
+const AssignedTask = ({fromTeam, teamId}: {fromTeam: string, teamId: string | undefined}) => {
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [status, setStatus] = useState<string>("");
@@ -35,14 +35,18 @@ const AssignedTask = ({fromTeam}: {fromTeam: string}) => {
     };
   }, [search]);
   
-  const { data, loading } = useQuery(GetAllAssignedTask, {
+  const { data, loading, refetch } = useQuery(GetAllAssignedTask, {
     variables: { 
       userId, 
-      teamId: null, 
+      teamId: teamId!== undefined ? teamId : null, 
       searchTerm: debouncedSearch || null, 
       status: status || null 
     }
   });
+
+  useEffect(()=>{
+    refetch()
+  }, [data])
 
   if (loading) {
     return (

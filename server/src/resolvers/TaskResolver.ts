@@ -6,6 +6,7 @@ import { Team } from "../entities/Team.ts";
 import { User } from "../entities/User.ts";
 import { ILike } from "typeorm";
 import { AppDataSource } from "../config/db.ts";
+import { Notification, NotificationType } from "../entities/Notification.ts";
 
 @Resolver()
 export class TaskResolver {
@@ -22,6 +23,7 @@ export class TaskResolver {
     const creatorId = context.user!.userId;
     const teamMemberRepo = AppDataSource.getRepository(TeamMember);
     const taskRepo = AppDataSource.getRepository(Task);
+    const notifRepo = AppDataSource.getRepository(Notification);
 
     const isCreatorMember = await teamMemberRepo.findOne({
       where: { team: { id: teamId }, user: { id: creatorId } },
@@ -51,7 +53,35 @@ export class TaskResolver {
       status: TaskStatus.PENDING,
     });
 
-    return await taskRepo.save(task);
+    const savedTask = await taskRepo.save(task);
+
+    const bodyMessage = `You have been assigned a new task: "${subject}"`;
+    
+    const newNotifi = await notifRepo.save({
+      user: { id: assignedToUserId } as User,
+      type: NotificationType.TASK_ASSIGNED,
+      title: "New Task Assigned",
+      body: bodyMessage,
+      team: { id: teamId } as Team,
+      task: { id: savedTask.id } as Task,
+      is_read: false
+    }as any);
+
+    context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId });
+    context.io.to(`user_${assignedToUserId}`).emit("REFETCH_GLOBAL_DATA", { teamId });
+
+    context.io.to(`user_${assignedToUserId}`).emit("incoming_system_notification", {
+      id: newNotifi.id,
+      type: "TASK_ASSIGNED",
+      title: "New Task Assigned",
+      body: bodyMessage,
+      team_id: teamId,
+      task_id: savedTask.id,
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+
+    return savedTask;
   }
 
   @Authorized()
@@ -94,8 +124,6 @@ export class TaskResolver {
       },
       order: { created_at: "DESC" },
     });
-
-    context.io.emit("REFETCH_GLOBAL_DATA");
 
     return tasks;
   }
@@ -141,12 +169,10 @@ export class TaskResolver {
       order: { created_at: "DESC" },
     });
 
-    if (!tasks.length) {
+    if (tasks.length === 0) {
       throw new Error("No task created by you");
     }
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
-    
     return tasks;
   }
 
@@ -205,7 +231,7 @@ export class TaskResolver {
     });
 
     if (!task) {
-      throw new Error("Task not found");
+      throw new Error("Task not found or deleted");
     }
 
     const member = await teamMemberRepo.findOne({
@@ -223,7 +249,17 @@ export class TaskResolver {
       throw new Error("You are not allowed");
     }
 
+    const teamId = task.team.id;
+    const assignedToUserId = task.assigned_to?.id;
     const result = await taskRepo.delete(taskId);
+
+    if (result.affected !== 0) {
+      if (assignedToUserId) {
+        context.io.to(`user_${task.assigned_to.id}`).emit("REFETCH_GLOBAL_DATA", { teamId });
+      }
+      
+      context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId });
+    }
 
     return result.affected !== 0;
   }

@@ -13,6 +13,7 @@ import { TeamMember, UserRole } from "../entities/TeamMember.ts";
 import { User } from "../entities/User.ts";
 import { ILike, In, Not } from "typeorm";
 import { AppDataSource } from "../config/db.ts";
+import { Notification } from "../entities/Notification.ts";
 
 @Resolver()
 export class TeamResolver {
@@ -58,7 +59,9 @@ export class TeamResolver {
         },
       })) as Team;
 
-      context.io.emit("REFETCH_GLOBAL_DATA");
+      for (const targetUid of uniqueMemberIds) {
+        context.io.to(`user_${targetUid}`).emit("REFETCH_GLOBAL_DATA", { teamId: savedTeam.id });
+      }
 
       return newTeam
     });
@@ -122,7 +125,10 @@ export class TeamResolver {
     const userId = context.user!.userId;
 
     const teamRepo = AppDataSource.getRepository(Team);
-    const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+    const teamMemberRepo = AppDataSource.getRepository(TeamMember);const notifRepo = AppDataSource.getRepository(Notification);
+    const userRepo = AppDataSource.getRepository(User);
+
+    const currentUser = await userRepo.findOne({ where: { id: userId } })
 
     const teams = await teamRepo.find({
       where: { id: In(teamIds), is_public: true },
@@ -156,7 +162,40 @@ export class TeamResolver {
 
     const teamMember = await teamMemberRepo.save(newMembers);
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
+    for (const team of teamsToJoin) {
+      const admins = await teamMemberRepo.find({
+        where: { team: { id: team.id }, role: UserRole.ADMIN },
+        relations: {user: true}
+      });
+
+      for (const admin of admins) {
+        const notifId = crypto.randomUUID();
+        const alertMsg = await notifRepo.save({
+          id: notifId,
+          user: { id: admin.user.id } as User,
+          type: "MEMBER_ADDED" as any,
+          title: "New Team Member",
+          body: `${currentUser?.name || 'A user'} has joined team: ${team.name}`,
+          team: { id: team.id } as Team,
+          is_read: false
+        });
+
+        context.io.to(`user_${admin.user.id}`).emit("incoming_system_notification", {
+          id: notifId,
+          type: "MEMBER_ADDED",
+          title: "New Team Member",
+          body: `${currentUser?.name || 'A user'} has joined team: ${team.name}`,
+          team_id: team.id,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    context.io.to(`user_${userId}`).emit("REFETCH_GLOBAL_DATA");
+    for (const tid of teamIds) {
+      context.io.to(tid).emit("REFETCH_GLOBAL_DATA", { teamId: tid });
+    }
 
     return teamMember
   }
@@ -182,9 +221,19 @@ export class TeamResolver {
       throw new Error("Access Denied: Only Admin can delete Team!");
     }
 
+    const currentMembers = await teamMemberRepo.find({
+      where: { team: { id: teamId } },
+      relations: {user: true}
+    });
+
     const result = await teamRepo.delete(teamId);
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
+    context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId, deleted: true });
+    for (const m of currentMembers) {
+      context.io.to(`user_${m.user.id}`).emit("REFETCH_GLOBAL_DATA", { teamId, deleted: true });
+    }
+
+    context.io.to(teamId).emit("team_deleted_live", { teamId: teamId });
 
     return result.affected !== 0;
   }
@@ -239,7 +288,11 @@ export class TeamResolver {
   ) {
     const currentUserId = context.user!.userId;
     const teamMemberRepo = AppDataSource.getRepository(TeamMember);
+    const notifRepo = AppDataSource.getRepository(Notification);
+    const teamRepo = AppDataSource.getRepository(Team);
+    const userRepo = AppDataSource.getRepository(User);
 
+    const currentTeam = await teamRepo.findOne({ where: { id: teamId } });
     const callerMember = await teamMemberRepo.findOne({
       where: { team: { id: teamId }, user: { id: currentUserId } },
     });
@@ -271,7 +324,64 @@ export class TeamResolver {
 
     await teamMemberRepo.save(newMembers);
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
+    for (const addedId of newUserIdsToInsert) {
+      const targetUser = await userRepo.findOne({ where: { id: addedId } });
+      const admins = await teamMemberRepo.find({
+        where: { team: { id: teamId }, role: UserRole.ADMIN },
+        relations: {user: true}
+      });
+
+      for (const admin of admins) {
+        if (admin.user.id === currentUserId) continue;
+        const notifId = crypto.randomUUID();
+        await notifRepo.save({
+          id: notifId,
+          user: { id: admin.user.id } as User,
+          type: "MEMBER_ADDED" as any,
+          title: "Member Added",
+          body: `${targetUser?.name || 'User'} was appended to team: ${currentTeam?.name}`,
+          team: { id: teamId } as Team,
+          is_read: false
+        });
+
+        context.io.to(`user_${admin.user.id}`).emit("incoming_system_notification", {
+          id: notifId,
+          type: "MEMBER_ADDED",
+          title: "Member Added",
+          body: `${targetUser?.name || 'User'} was appended to team: ${currentTeam?.name}`,
+          team_id: teamId,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      const userNotifId = crypto.randomUUID();
+      await notifRepo.save({
+        id: userNotifId,
+        user: { id: addedId } as User,
+        type: "TEAM_JOINED" as any,
+        title: "Added to Team",
+        body: `You have been added to team: ${currentTeam?.name}`,
+        team: { id: teamId } as Team,
+        is_read: false
+      });
+
+      context.io.to(`user_${addedId}`).emit("incoming_system_notification", {
+        id: userNotifId,
+        type: "TEAM_JOINED",
+        title: "Added to Team",
+        body: `You have been added to team: ${currentTeam?.name}`,
+        team_id: teamId,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+    }
+
+    context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId });
+    
+    for (const addedId of newUserIdsToInsert) {
+      context.io.to(`user_${addedId}`).emit("REFETCH_GLOBAL_DATA", { teamId });
+    }
 
     return true;
   }
@@ -319,7 +429,8 @@ export class TeamResolver {
 
     await teamMemberRepo.update({ id: memberId }, { role: newRole });
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
+    context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId });
+    context.io.to(`user_${targetMember.user.id}`).emit("REFETCH_GLOBAL_DATA", { teamId });
 
     return true;
   }
@@ -364,9 +475,11 @@ export class TeamResolver {
       if (adminCount <= 1) throw new Error("Cannot change role of last admin");
     }
 
+    const targetUserId = targetMember.user.id;
     await teamMemberRepo.delete({ id: memberId });
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
+    context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId });
+    context.io.to(`user_${targetUserId}`).emit("REFETCH_GLOBAL_DATA", { teamId, removed: true });
 
     return true;
   }
@@ -399,7 +512,8 @@ export class TeamResolver {
 
     await teamMemberRepo.delete({ id: callerMember.id });
 
-    context.io.emit("REFETCH_GLOBAL_DATA");
+    context.io.to(teamId).emit("REFETCH_GLOBAL_DATA", { teamId });
+    context.io.to(`user_${currentUserId}`).emit("REFETCH_GLOBAL_DATA", { teamId, removed: true });
 
     return true;
   }

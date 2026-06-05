@@ -38,7 +38,7 @@ export class Notification {
   @Column({ type: 'text', nullable: true })
   body!: string;
 
-  @Field(()=>String)
+  @Field(()=>Boolean)
   @Column({type:'boolean', default: false })
   is_read!: boolean;
 

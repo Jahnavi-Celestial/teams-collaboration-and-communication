@@ -28,6 +28,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import UserProfileModal, { type Member, type User } from "./UserProfileModal";
 import { DeleteTeamConfirmDialog } from "./DeleteTeamConfirmModel";
+import { socket } from "../socket";
 
 const MemberList = ({ teamId }: { teamId: string | undefined }) => {
   const { userId } = useAuth();
@@ -169,6 +170,10 @@ const MemberList = ({ teamId }: { teamId: string | undefined }) => {
           },
         });
         setOpenRemoveModal(false);
+        socket.emit("kick_user_from_room", { 
+            targetUserId: selectedMember.user?.id,
+            teamId: teamId 
+        });
         setSelectedMember(null);
         refetch();
       } catch (error: any) {

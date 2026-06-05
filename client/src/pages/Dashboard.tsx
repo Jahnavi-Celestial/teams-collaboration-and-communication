@@ -5,6 +5,7 @@ import { Container, Typography, Box, Grid, Button, Pagination} from "@mui/materi
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt';
 import TeamCard from "../components/TeamCard"
 import CreateTeamModal from "../components/CreateTeamModal";
+import NoData from "../assets/NoData.png"
 
 const PAGE_SIZE = 9;
 
@@ -82,8 +83,8 @@ const Dashboard = () => {
                     <Typography variant="h3">Welcome to TeamChat!</Typography>
                     <Typography variant="h5" component="p">Look's like you are not part of any team yet. Jump right in by creating your own team or join any public team.</Typography>
 
-                    <Box>
-                        <img/>
+                    <Box sx={{display: "flex", alignItems: "center", justifyContent: "center"}}>
+                        <img src={NoData} alt="No Data Found" style={{ maxWidth: "600px", minWidth: "300px", height: "auto" }}/>
                     </Box>
 
                     <Box>
