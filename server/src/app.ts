@@ -56,6 +56,7 @@ async function main() {
         credentials: true,
         optionsSuccessStatus: 200,
       },
+      transports: ["websocket", "polling"]
     });
 
     initDeadlineCron(io);
