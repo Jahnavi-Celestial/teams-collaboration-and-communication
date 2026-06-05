@@ -1,0 +1,33 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+
+    - name: Install Dependencies
+      run: npm install
+      working-directory: server
+
+    - name: Verify Production Build
+      run: npx tsup ./src/app.ts --format esm --clean --minify --no-splitting
+      working-directory: server
+
+    - name: Trigger Production Server Rollout
+      run: curl -X POST "${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}"
