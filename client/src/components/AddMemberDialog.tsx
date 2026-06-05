@@ -40,36 +40,48 @@ export const AddMemberDialog = ({
         <Autocomplete
           multiple
           id="tags-outlined"
-          options={availableUsers}
-          getOptionLabel={(option) => `${option.name}`}
-          filterSelectedOptions
-          value={selectedNewUsers}
-          onChange={(_, newValue) => setSelectedNewUsers(newValue)}
-          inputValue={inputValue}
-          onInputChange={(_, newInputValue) => setInputValue(newInputValue)}
+          options={availableUsers || []} 
           loading={loadingUsers}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Search users"
-              placeholder="Select Users"
-              fullWidth
-              slotProps={{
-                input: {
-                  ...params?.slotProps?.input,
-                  endAdornment: (
-                    <>
-                      {loadingUsers ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params?.slotProps?.input.endAdornment}
-                    </>
-                  ),
-                },
-              }}
-            />
-          )}
+          getOptionLabel={(option) => option?.name || ""} 
+          isOptionEqualToValue={(option, value) => option?.id === value?.id} 
+          filterSelectedOptions
+          value={selectedNewUsers || []}
+          onChange={(_, newValue) => setSelectedNewUsers(newValue || [])}
+          inputValue={inputValue || ""}
+          onInputChange={(_, newInputValue) => setInputValue(newInputValue || "")}
+          renderOption={(props, option) => {
+            return (
+              <li {...props} key={option?.id}>
+                {option?.name || ""}
+              </li>
+            );
+          }}
+          renderInput={(params) => {
+            const safeParams = params as any;
+            return (
+              <TextField
+                {...params}
+                label="Search users"
+                placeholder="Select Users"
+                fullWidth
+                slotProps={{
+                  input: {
+                    ...safeParams?.slotProps?.input,
+                    endAdornment: (
+                      <>
+                        {loadingUsers ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {safeParams?.slotProps?.input?.endAdornment}
+                      </>
+                    ),
+                  },
+                }}
+              />
+            );
+          }}
         />
+
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

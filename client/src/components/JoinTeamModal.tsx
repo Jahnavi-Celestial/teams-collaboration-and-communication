@@ -72,22 +72,22 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
       <DialogContent>
         <Autocomplete
           multiple
-          options={options}
+          options={options || []}
           loading={loading}
-          getOptionLabel={(option) => option.name}
-          value={selectedTeams}
+          getOptionLabel={(option) => option?.name || ""}
+          isOptionEqualToValue={(option, value) => option?.id === value?.id}
+          value={selectedTeams || []}
           onChange={(_, newValue) => {
-            setSelectedTeams(newValue);
+            setSelectedTeams(newValue || []);
           }}
-          inputValue={inputValue}
+          inputValue={inputValue || ""}
           onInputChange={(_, newInputValue) => {
-            setInputValue(newInputValue);
+            setInputValue(newInputValue || "");
           }}
           renderOption={(props, option) => {
-            const { key, ...optionProps } = props;
             return (
-              <li key={key} {...optionProps}>
-                {option.name}
+              <li {...props} key={option?.id}>
+                {option?.name || ""}
               </li>
             );
           }}
@@ -114,6 +114,7 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
             );
           }}
         />
+
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

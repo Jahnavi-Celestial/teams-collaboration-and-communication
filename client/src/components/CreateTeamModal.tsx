@@ -108,23 +108,22 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
 
         <Autocomplete
           multiple
-          options={options}
+          options={options || []} 
           loading={loading}
-          getOptionLabel={(option) => option.name}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-          value={selectedUsers}
+          getOptionLabel={(option) => option?.name || ""} 
+          isOptionEqualToValue={(option, value) => option?.id === value?.id}
+          value={selectedUsers || []}
           onChange={(_, newValue) => {
-            setSelectedUsers(newValue);
+            setSelectedUsers(newValue || []);
           }}
-          inputValue={inputValue}
+          inputValue={inputValue || ""}
           onInputChange={(_, newInputValue) => {
-            setInputValue(newInputValue);
+            setInputValue(newInputValue || "");
           }}
           renderOption={(props, option) => {
-            const { key, ...optionProps } = props;
             return (
-              <li key={key} {...optionProps}>
-                {option.name}
+              <li {...props} key={option?.id}>
+                {option?.name || ""}
               </li>
             );
           }}
