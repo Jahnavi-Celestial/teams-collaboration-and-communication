@@ -154,11 +154,7 @@ const Navbar = () => {
         anchorEl={notifAnchorEl}
         open={Boolean(notifAnchorEl)}
         onClose={() => setNotifAnchorEl(null)}
-        slotProps={{
-          paper: {
-            sx: { width: 320, maxHeight: 400 },
-          },
-        }}
+        PaperProps={{ sx: { width: 320, maxHeight: 400 } }}
         sx={{ zIndex: 11000 }}
       >
         {notifications.length === 0 ? (

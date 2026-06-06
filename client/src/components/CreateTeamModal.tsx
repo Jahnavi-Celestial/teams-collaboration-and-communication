@@ -42,8 +42,8 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
 
   const [createTeam] = useMutation(createTeamWithMembers, {
     update(cache) {
-      cache.evict({ fieldName: "getTeams" });
-      cache.gc();
+        cache.evict({ fieldName: "getTeams" });
+        cache.gc();
     },
     onCompleted: () => {
       onClose();
@@ -68,7 +68,7 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
     });
   };
 
-  const options = (data as any)?.getAllUsers || [];
+  const options = data?.getAllUsers || [];
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -108,47 +108,48 @@ const CreateTeamModal = ({ open, onClose }: Props) => {
 
         <Autocomplete
           multiple
-          options={options || []} 
+          options={options}
           loading={loading}
-          getOptionLabel={(option) => option?.name || ""} 
-          isOptionEqualToValue={(option, value) => option?.id === value?.id}
-          value={selectedUsers || []}
-          onChange={(_, newValue) => {
-            setSelectedUsers(newValue || []);
+          getOptionLabel={(option) => option.name}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          slotProps={{
+            option: {
+              key: (option: User) => option.id,
+            },
           }}
-          inputValue={inputValue || ""}
+          value={selectedUsers}
+          onChange={(_, newValue) => {
+            setSelectedUsers(newValue);
+          }}
+          inputValue={inputValue}
           onInputChange={(_, newInputValue) => {
-            setInputValue(newInputValue || "");
+            setInputValue(newInputValue);
           }}
           renderOption={(props, option) => {
+            const { key, ...optionProps } = props;
             return (
-              <li {...props} key={option?.id}>
-                {option?.name || ""}
+              <li key={option.id} {...optionProps}>
+                {option.name}
               </li>
             );
           }}
-          renderInput={(params) => {
-            const safeParams = params as any;
-            return (
-              <TextField
-                {...params}
-                label="Search User"
-                slotProps={{
-                  input: {
-                    ...safeParams?.slotProps?.input,
-                    endAdornment: (
-                      <>
-                        {loading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {safeParams?.slotProps?.input?.endAdornment}
-                      </>
-                    ),
-                  },
-                }}
-              />
-            );
-          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Search User"
+              InputProps={{
+                ...params?.InputProps,
+                endAdornment: (
+                  <>
+                    {loading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params?.InputProps?.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
         />
       </DialogContent>
       <DialogActions>

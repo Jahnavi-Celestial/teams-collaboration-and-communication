@@ -49,9 +49,7 @@ const CreateTaskModal = ({
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [assignedMember, setAssignedMember] = useState<TeamMemberNode | null>(
-    null,
-  );
+  const [assignedMember, setAssignedMember] = useState<TeamMemberNode | null>(null);
 
   const [inputValue, setInputValue] = useState<string>("");
   const [dateError, setDateError] = useState<string | null>(null);
@@ -94,7 +92,7 @@ const CreateTaskModal = ({
 
   const handleFormSubmit = async () => {
     if (!subject.trim() || !assignedMember || !deadline || dateError) return;
-
+    
     const deadlineIso = new Date(deadline).toISOString();
     await onSubmit({
       subject,
@@ -108,10 +106,8 @@ const CreateTaskModal = ({
   return (
     <Dialog open={open} onClose={handleClearAndClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: "bold" }}>Create Task</DialogTitle>
-      <DialogContent
-        dividers
-        sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}
-      >
+      <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}>
+        
         <TextField
           label="Subject"
           variant="outlined"
@@ -132,51 +128,48 @@ const CreateTaskModal = ({
         />
 
         <Autocomplete
-          options={teamMembers || []}
+          options={teamMembers}
           loading={membersLoading}
-          getOptionLabel={(option: TeamMemberNode) => option?.user?.name || ""}
-          isOptionEqualToValue={(option, value) =>
-            option?.user?.id === value?.user?.id
-          }
+          getOptionLabel={(option: TeamMemberNode) => `${option.user.name}`}
+          isOptionEqualToValue={(option, value) => option.user.id === value.user.id}
+          slotProps={{
+            option: {
+              key: (option: TeamMemberNode) => option.user.id,
+            },
+          }}
           value={assignedMember}
           onChange={(_event, newValue: TeamMemberNode | null) => {
             setAssignedMember(newValue);
           }}
-          inputValue={inputValue || ""}
+          inputValue={inputValue}
           onInputChange={(_event, newInputValue) => {
-            setInputValue(newInputValue || "");
+            setInputValue(newInputValue);
           }}
           renderOption={(props, option) => {
+            const { key, ...optionProps } = props;
             return (
-              <li {...props} key={option?.user?.id}>
-                {option?.user?.name || ""}
+              <li key={option.user.id} {...optionProps}>
+                {option.user.name}
               </li>
             );
           }}
-          renderInput={(params) => {
-            const safeParams = params as any;
-            return (
-              <TextField
-                {...params}
-                label="Assigned To"
-                variant="outlined"
-                required
-                slotProps={{
-                  input: {
-                    ...safeParams?.slotProps?.input,
-                    endAdornment: (
-                      <>
-                        {membersLoading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {safeParams?.slotProps?.input?.endAdornment}
-                      </>
-                    ),
-                  },
-                }}
-              />
-            );
-          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Assigned To"
+              variant="outlined"
+              required
+              InputProps={{
+                ...params?.InputProps,
+                endAdornment: (
+                  <>
+                    {membersLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                    {params?.InputProps?.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
         />
 
         <TextField
@@ -189,41 +182,29 @@ const CreateTaskModal = ({
           helperText={dateError}
           value={deadline}
           onChange={handleDateChange}
-          slotProps={{
-            inputLabel: {
-              shrink: true,
-            },
-            htmlInput: {
-              min: todayStr,
-            },
+          InputLabelProps={{ 
+            shrink: true 
+          }}
+          inputProps={{ 
+            min: todayStr 
           }}
           sx={{
             "& input::-webkit-calendar-picker-indicator": {
-              cursor: "pointer",
-            },
+              cursor: "pointer"
+            }
           }}
         />
       </DialogContent>
 
       <DialogActions sx={{ p: 2 }}>
-        <Button
-          onClick={handleClearAndClose}
-          color="secondary"
-          disabled={creatingTask}
-        >
+        <Button onClick={handleClearAndClose} color="secondary" disabled={creatingTask}>
           Cancel
         </Button>
         <Button
           onClick={handleFormSubmit}
           variant="contained"
           color="primary"
-          disabled={
-            creatingTask ||
-            !subject.trim() ||
-            !assignedMember ||
-            !deadline ||
-            !!dateError
-          }
+          disabled={creatingTask || !subject.trim() || !assignedMember || !deadline || !!dateError}
         >
           {creatingTask ? "Creating..." : "Create"}
         </Button>

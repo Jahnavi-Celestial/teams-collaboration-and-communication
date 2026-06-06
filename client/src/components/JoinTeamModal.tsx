@@ -25,19 +25,19 @@ interface Team {
 
 const JoinTeamModal = ({ open, onClose }: Props) => {
   const [selectedTeams, setSelectedTeams] = useState<Team[]>([]);
-
+  
   const [inputValue, setInputValue] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const { data, loading } = useQuery(GetAllPublicTeams, {
     variables: { searchTerm },
-    skip: !open,
+    skip: !open, 
   });
 
   const [joinTeams] = useMutation(JoinTeams, {
     update(cache) {
-      cache.evict({ fieldName: "getTeams" });
-      cache.gc();
+        cache.evict({ fieldName: "getTeams" });
+        cache.gc();
     },
     onCompleted: () => {
       onClose();
@@ -51,7 +51,7 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
     },
   });
 
-  const handleJoin = (): void => {
+  const handleJoin = ():void => {
     if (selectedTeams.length === 0) return;
     joinTeams({ variables: { teamIds: selectedTeams.map((t) => t.id) } });
   };
@@ -72,49 +72,48 @@ const JoinTeamModal = ({ open, onClose }: Props) => {
       <DialogContent>
         <Autocomplete
           multiple
-          options={options || []}
+          options={options}
           loading={loading}
-          getOptionLabel={(option) => option?.name || ""}
-          isOptionEqualToValue={(option, value) => option?.id === value?.id}
-          value={selectedTeams || []}
-          onChange={(_, newValue) => {
-            setSelectedTeams(newValue || []);
+          getOptionLabel={(option) => option.name}
+          slotProps={{
+            option: {
+              key: (option: Team) => option.id,
+            }
           }}
-          inputValue={inputValue || ""}
+          value={selectedTeams}
+          onChange={(_, newValue) => {
+            setSelectedTeams(newValue);
+          }}
+          inputValue={inputValue}
           onInputChange={(_, newInputValue) => {
-            setInputValue(newInputValue || "");
+            setInputValue(newInputValue);
           }}
           renderOption={(props, option) => {
+            const { key, ...optionProps } = props;
             return (
-              <li {...props} key={option?.id}>
-                {option?.name || ""}
+              <li key={option.id} {...optionProps}>
+                {option.name}
               </li>
             );
           }}
-          renderInput={(params) => {
-            const safeParams = params as any;
-            return (
-              <TextField
-                {...params}
-                label="Search & Select Teams"
-                slotProps={{
-                  input: {
-                    ...safeParams?.slotProps?.input,
-                    endAdornment: (
-                      <>
-                        {loading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {safeParams?.slotProps?.input?.endAdornment}
-                      </>
-                    ),
-                  },
-                }}
-              />
-            );
-          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Search & Select Teams"
+              InputProps={{
+                ...params?.InputProps,
+                endAdornment: (
+                  <>
+                    {loading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params?.InputProps?.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
         />
-
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
