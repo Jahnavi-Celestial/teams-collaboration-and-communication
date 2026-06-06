@@ -280,7 +280,7 @@ const TaskDetail = () => {
         <Typography variant="body1">
           <strong>Deadline:</strong>{" "}
           {taskdata.deadline
-            ? new Date(taskdata.deadline).toLocaleString()
+            ? new Date(taskdata.deadline).toLocaleDateString()
             : "N/A"}
         </Typography>
       </Box>

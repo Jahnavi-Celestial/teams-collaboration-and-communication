@@ -58,8 +58,6 @@ const Navbar = () => {
     markNotificationRead(n.id);
     setNotifAnchorEl(null);
 
-    console.log(n);
-
     const targetTaskId = n.task_id;
     const targetTeamId = n.team_id;
 
