@@ -3,6 +3,7 @@ import { GraphQLUpload, type FileUpload } from "graphql-upload-ts";
 import csv from "csv-parser";
 import { Parser } from "json2csv";
 import bcrypt from "bcrypt";
+import { In } from "typeorm"; 
 import { Team } from "../entities/Team.ts";
 import { AppDataSource } from "../config/db.ts";
 import { User } from "../entities/User.ts";
@@ -44,7 +45,6 @@ export class ImportExportTeamResolver {
     @Ctx() ctx: MyContext
   ): Promise<boolean> {
     const loggedInUser = ctx.user;
-
     if (!loggedInUser || !loggedInUser.userId) {
       throw new Error("Unauthorized");
     }
@@ -59,18 +59,40 @@ export class ImportExportTeamResolver {
         .on('error', reject);
     });
 
-    const teamRepo = AppDataSource.getRepository(Team);
-    const userRepo = AppDataSource.getRepository(User);
-    const memberRepo = AppDataSource.getRepository(TeamMember);
+    if (rows.length === 0) return true;
 
-    const teamGroups: { [key: string]: any[] } = {};
+    await Promise.all(
+      rows.map(async (row) => {
+        const email = row.memberEmail || row.email;
+        if (email && row.password) {
+          row.hashedPassword = await bcrypt.hash(row.password, 10);
+        }
+      })
+    );
+
+    const emails = rows.map((r) => r.memberEmail || r.email).filter(Boolean);
+    const userRepo = AppDataSource.getRepository(User);
+    
+    const existingUsers = await userRepo.find({
+      where: [{ email: In(emails) }, { google_id: In(emails) }],
+    });
+    
+    const userCache = new Map<string, User>();
+    existingUsers.forEach((u) => {
+      if (u.email) userCache.set(u.email.toLowerCase(), u);
+      if (u.google_id) userCache.set(u.google_id.toLowerCase(), u);
+    });
+
     const defaultTeamName = filename ? filename.replace('.csv', '') : 'Imported Team';
+    const teamGroups: { [key: string]: any[] } = {};
 
     for (const row of rows) {
       const email = row.memberEmail || row.email;
       if (!email) continue;
 
-      if(!row.password) throw new Error(`${row.email} Password is required in csv otherwise provide google_id`)
+      if (!row.password && !row.google_id) {
+        throw new Error(`${email}: Password or google_id is required in CSV.`);
+      }
 
       const targetTeamId = row.teamId || teamId;
       const tName = row.teamName || defaultTeamName;
@@ -82,133 +104,111 @@ export class ImportExportTeamResolver {
       teamGroups[groupKey].push(row);
     }
 
-    for (const groupKey of Object.keys(teamGroups)) {
-      const currentRows = teamGroups[groupKey];
-      let teamInstance: Team | null = null;
+    await AppDataSource.transaction(async (transactionalEntityManager) => {
+      for (const groupKey of Object.keys(teamGroups)) {
+        const currentRows = teamGroups[groupKey]!;
+        let teamInstance: Team | null = null;
 
-      if (groupKey.startsWith('ID:')) {
-        const existingId = groupKey.replace('ID:', '');
-        teamInstance = await teamRepo.findOneBy({ id: existingId });
-      }
-
-      if (!teamInstance) {
-        let adminUserInstance: User | null = null;
-        const currentTeamName = groupKey.startsWith('NAME:') ? groupKey.replace('NAME:', '') : defaultTeamName;
-
-        for (const row of currentRows!) {
-          const rowRole = row.memberRole || row.role || 'MEMBER';
-          if (rowRole === 'ADMIN') {
-            const email = row.memberEmail || row.email;
-            let existingUser = await userRepo.findOne({
-              where: [{ email: email }, { google_id: email }]
-            });
-
-            if (!existingUser) {
-              const plainPassword = row.password;
-              const googleId = row.google_id;
-              if (!plainPassword && !googleId) continue;
-
-              const fallbackName = email.split('@')[0] || 'Unknown Member';
-              const name = row.memberName || row.name || fallbackName;
-
-              const userProps: any = { name: String(name), email: String(email) };
-              if (plainPassword) userProps.password_hash = await bcrypt.hash(plainPassword, 10);
-              if (googleId) userProps.google_id = googleId;
-
-              existingUser = await userRepo.save(userProps);
-            }
-            
-            adminUserInstance = existingUser;
-            break;
-          }
+        if (groupKey.startsWith('ID:')) {
+          const existingId = groupKey.replace('ID:', '');
+          teamInstance = await transactionalEntityManager.findOneBy(Team, { id: existingId });
         }
 
-        if (!adminUserInstance) {
-          const firstRow = currentRows![0];
-          const fallbackEmail = firstRow?.memberEmail || firstRow?.email;
-          
-          if (fallbackEmail) {
-            let firstRowUser = await userRepo.findOne({
-              where: [{ email: fallbackEmail }, { google_id: fallbackEmail }]
-            });
+        if (!teamInstance) {
+          let adminUserInstance: User | null = null;
+          const currentTeamName = groupKey.startsWith('NAME:') ? groupKey.replace('NAME:', '') : defaultTeamName;
 
-            if (!firstRowUser) {
-              const plainPassword = firstRow.password;
-              const googleId = firstRow.google_id;
-              if (plainPassword || googleId) {
-                const fallbackName = fallbackEmail.split('@')[0] || 'Unknown Member';
-                const name = firstRow.memberName || firstRow.name || fallbackName;
+          for (const row of currentRows) {
+            const rowRole = row.memberRole || row.role || 'MEMBER';
+            if (rowRole === 'ADMIN') {
+              const email = (row.memberEmail || row.email).toLowerCase();
+              adminUserInstance = userCache.get(email) || null;
 
-                const userProps: any = { name: String(name), email: String(fallbackEmail) };
-                if (plainPassword) userProps.password_hash = await bcrypt.hash(plainPassword, 10);
-                if (googleId) userProps.google_id = googleId;
+              if (!adminUserInstance) {
+                const name = row.memberName || row.name || email.split('@')[0];
+                const newUser = transactionalEntityManager.create(User, {
+                  name: String(name),
+                  email: String(email),
+                  password_hash: row.hashedPassword || undefined,
+                  google_id: row.google_id || undefined,
+                });
+                adminUserInstance = await transactionalEntityManager.save(User, newUser);
+                userCache.set(email, adminUserInstance);
+              }
+              break;
+            }
+          }
 
-                firstRowUser = await userRepo.save(userProps);
+          if (!adminUserInstance) {
+            const firstRow = currentRows[0];
+            const fallbackEmail = (firstRow?.memberEmail || firstRow?.email)?.toLowerCase();
+            if (fallbackEmail) {
+              adminUserInstance = userCache.get(fallbackEmail) || null;
+              if (!adminUserInstance && (firstRow.hashedPassword || firstRow.google_id)) {
+                const name = firstRow.memberName || firstRow.name || fallbackEmail.split('@')[0];
+                const newUser = transactionalEntityManager.create(User, {
+                  name: String(name),
+                  email: String(fallbackEmail),
+                  password_hash: firstRow.hashedPassword || undefined,
+                  google_id: firstRow.google_id || undefined,
+                });
+                adminUserInstance = await transactionalEntityManager.save(User, newUser);
+                userCache.set(fallbackEmail, adminUserInstance);
               }
             }
-            adminUserInstance = firstRowUser;
-          }
-        }
-
-        const teamProperties: any = {
-          name: currentTeamName,
-          description: 'Automatically created during CSV import',
-          is_public: true
-        };
-
-        if (adminUserInstance && adminUserInstance.id) {
-          teamProperties.created_by = { id: adminUserInstance.id } as User;
-        } else {
-          teamProperties.created_by = { id: loggedInUser.userId } as User;
-        }
-
-        teamInstance = await teamRepo.save(teamProperties);
-      }
-
-      for (const row of currentRows!) {
-        const email = row.memberEmail || row.email;
-        let dbUser = await userRepo.findOne({
-          where: [{ email: email }, { google_id: email }]
-        });
-
-        if (!dbUser) {
-          const plainPassword = row.password;
-          const googleId = row.google_id;
-          if (!plainPassword && !googleId) continue;
-
-          const fallbackName = email.split('@')[0] || 'Unknown Member';
-          const name = row.memberName || row.name || fallbackName;
-
-          const userProperties: any = { name: String(name), email: String(email) };
-          if (plainPassword) userProperties.password_hash = await bcrypt.hash(plainPassword, 10);
-          if (googleId) userProperties.google_id = googleId;
-
-          dbUser = await userRepo.save(userProperties);
-        }
-
-        if (!dbUser || !dbUser.id) continue;
-
-        const exists = await memberRepo.findOne({
-          where: {
-            team: { id: teamInstance!.id },
-            user: { id: dbUser.id }
-          }
-        });
-
-        if (!exists) {
-          let parsedRole = UserRole.MEMBER;
-          if (row.memberRole === 'ADMIN' || row.role === 'ADMIN') {
-            parsedRole = UserRole.ADMIN;
           }
 
-          await memberRepo.save(memberRepo.create({
-            team: { id: teamInstance!.id },
-            user: { id: dbUser.id },
-            role: parsedRole
-          }));
+          const teamProperties = transactionalEntityManager.create(Team, {
+            name: currentTeamName,
+            description: 'Automatically created during CSV import',
+            is_public: true,
+            created_by: adminUserInstance ? { id: adminUserInstance.id } as User : { id: loggedInUser.userId } as User,
+          });
+
+          teamInstance = await transactionalEntityManager.save(Team, teamProperties);
+        }
+
+        for (const row of currentRows) {
+          const email = (row.memberEmail || row.email).toLowerCase();
+          let dbUser = userCache.get(email) || null;
+
+          if (!dbUser) {
+            const name = row.memberName || row.name || email.split('@')[0];
+            const newUser = transactionalEntityManager.create(User, {
+              name: String(name),
+              email: String(email),
+              password_hash: row.hashedPassword || undefined,
+              google_id: row.google_id || undefined,
+            });
+            dbUser = await transactionalEntityManager.save(User, newUser);
+            userCache.set(email, dbUser);
+          }
+
+          if (!dbUser || !dbUser.id) continue;
+
+          const exists = await transactionalEntityManager.findOne(TeamMember, {
+            where: {
+              team: { id: teamInstance.id },
+              user: { id: dbUser.id }
+            }
+          });
+
+          if (!exists) {
+            let parsedRole = UserRole.MEMBER;
+            if (row.memberRole === 'ADMIN' || row.role === 'ADMIN') {
+              parsedRole = UserRole.ADMIN;
+            }
+
+            const newMember = transactionalEntityManager.create(TeamMember, {
+              team: { id: teamInstance.id },
+              user: { id: dbUser.id },
+              role: parsedRole
+            });
+            await transactionalEntityManager.save(TeamMember, newMember);
+          }
         }
       }
-    }
+    });
 
     return true;
   }
