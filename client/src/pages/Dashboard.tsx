@@ -6,6 +6,8 @@ import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt';
 import TeamCard from "../components/TeamCard"
 import CreateTeamModal from "../components/CreateTeamModal";
 import NoData from "../assets/NoData.png"
+import TeamDownloader from "../components/TeamManager/TeamDownload";
+import TeamUploader from "../components/TeamManager/TeamUploader";
 
 const PAGE_SIZE = 9;
 
@@ -51,6 +53,10 @@ const Dashboard = () => {
             haveTeam ? (
                 <Box sx={{width: "100%", display: "flex", flexDirection: "column", gap: 3, my: 5}}>
                     <Typography variant="h3">Welcome Back to TeamChat!</Typography>
+                        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", p: 2, bgcolor: "grey.50", borderRadius: 2 }}>
+                            <TeamDownloader />
+                            <TeamUploader />
+                        </Box>
                     <Typography variant="h5" component="p">Explore Your Teams</Typography>
                     <Grid container spacing={3} sx={{width: "100%"}}>
                         {

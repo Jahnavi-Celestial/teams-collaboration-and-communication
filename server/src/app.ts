@@ -21,6 +21,8 @@ import { registerMessageHandlers } from "./sockets/messageHandlers.ts";
 import { User } from "./entities/User.ts";
 import { registerNotificationsHandlers } from "./sockets/notificationHandlers.ts";
 import { initDeadlineCron } from "./cron/deadlineCron.ts";
+import { graphqlUploadExpress } from "graphql-upload-ts"
+import { ImportExportTeamResolver } from "./resolvers/ImportExportTeamResolver.ts";
 
 dotenv.config();
 
@@ -30,7 +32,7 @@ async function main() {
     console.log("Database connected successfully");
 
     const schema = await buildSchema({
-      resolvers: [UserResolver, TeamResolver, TaskResolver],
+      resolvers: [UserResolver, TeamResolver, TaskResolver, ImportExportTeamResolver],
       authChecker: authChecker,
       validate: false,
     });
@@ -40,7 +42,12 @@ async function main() {
       cors({
         origin: process.env.FRONTEND_URL,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'apollo-require-preflight',
+          'x-apollo-operation-name'
+        ],
         credentials: true,
         optionsSuccessStatus: 200,
       }),
@@ -52,7 +59,12 @@ async function main() {
       cors: {
         origin: process.env.FRONTEND_URL,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'apollo-require-preflight',
+          'x-apollo-operation-name'
+        ],
         credentials: true,
         optionsSuccessStatus: 200,
       },
@@ -161,6 +173,8 @@ async function main() {
     });
 
     await server.start();
+
+    app.use(graphqlUploadExpress({maxFieldSize: 10000000, maxFiles: 10}));
 
     app.use(
       "/graphql",

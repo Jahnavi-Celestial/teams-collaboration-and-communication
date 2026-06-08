@@ -1,7 +1,11 @@
-import { ApolloClient, InMemoryCache, createHttpLink, ApolloLink } from "@apollo/client";
+import { ApolloClient, InMemoryCache, ApolloLink } from "@apollo/client";
+import UploadHttpLink from 'apollo-upload-client/UploadHttpLink.mjs';
 
-const httpLink = createHttpLink({
+const uploadHttpLink = new UploadHttpLink({
   uri: import.meta.env.VITE_BACKEND_URL,
+  headers: {
+    'apollo-require-preflight': 'true',
+  }
 });
 
 const authLink = new ApolloLink((operation, forward) => {
@@ -17,7 +21,7 @@ const authLink = new ApolloLink((operation, forward) => {
 });
 
 export const client = new ApolloClient({
-  link: authLink.concat(httpLink),
+  link: authLink.concat(uploadHttpLink),
   cache: new InMemoryCache({
     resultCaching: false,
     typePolicies: {

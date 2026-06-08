@@ -191,3 +191,9 @@ export const GetMemberProfile = gql`
     }
   }
 `;
+
+export const ExportTeams = gql`
+  query ExportTeams($teamId: String!) {
+    exportTeam(teamId: $teamId)
+  }
+`;

@@ -139,3 +139,9 @@ export const DELETE_TASK = gql`
     deleteTask(taskId: $taskId)
   }
 `;
+
+export const ImportTeams = gql`
+  mutation ImportTeams($teamId: String!, $file: Upload!) {
+    importTeams(teamId: $teamId, file: $file)
+  }
+`;
