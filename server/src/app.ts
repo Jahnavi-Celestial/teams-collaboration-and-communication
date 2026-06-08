@@ -174,10 +174,9 @@ async function main() {
 
     await server.start();
 
-    app.use("/graphql", graphqlUploadExpress({maxFieldSize: 10000000, maxFiles: 10}));
-
     app.use(
       "/graphql",
+      graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 10 }),
       express.json(),
       expressMiddleware(server, {
         context: async ({ req, res }: { req: any; res: any }): Promise<MyContext> => ({ req, res, io }),
