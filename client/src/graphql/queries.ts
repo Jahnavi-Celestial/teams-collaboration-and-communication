@@ -197,3 +197,23 @@ export const ExportTeams = gql`
     exportTeam(teamId: $teamId)
   }
 `;
+
+export const GetAllTeams = gql`
+  query GetAllTeams($skip: Int, $take: Int){
+    getTeams(skip: $skip, take: $take){
+        id
+        name
+        description
+        is_public
+        created_at
+        updated_at
+        created_by {
+            id
+            name
+            email
+            created_at
+            updated_at
+        }
+    }
+  }
+`;

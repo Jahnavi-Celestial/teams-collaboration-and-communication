@@ -53,7 +53,7 @@ const Dashboard = () => {
             haveTeam ? (
                 <Box sx={{width: "100%", display: "flex", flexDirection: "column", gap: 3, my: 5}}>
                     <Typography variant="h3">Welcome Back to TeamChat!</Typography>
-                        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", p: 2, bgcolor: "grey.50", borderRadius: 2 }}>
+                        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", p: 2, bgcolor: "grey.50", borderRadius: 2, justifyContent: "space-between"}}>
                             <TeamDownloader />
                             <TeamUploader />
                         </Box>

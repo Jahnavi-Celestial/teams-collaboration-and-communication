@@ -1,15 +1,15 @@
 import { Select, MenuItem, Button, FormControl, InputLabel, Box } from '@mui/material';
 import { useState } from 'react';
-import { GetTeams } from '../../graphql/queries';
+import { GetAllTeams } from '../../graphql/queries';
 import { useMutation, useQuery } from '@apollo/client/react';
 import { ImportTeams } from '../../graphql/mutations';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const TeamUploader = () => {
   const [selectedTeam, setSelectedTeam] = useState("");
-  const { data } = useQuery(GetTeams, { variables: { skip: 0, take: 100 } });
+  const { data } = useQuery(GetAllTeams, {variables: {skip: 0, take: 100}});
   const [importTeams, { loading }] = useMutation(ImportTeams, {
-    refetchQueries: [{ query: GetTeams, variables: { skip: 0, take: 9 } }]
+    refetchQueries: [{ query: GetAllTeams, variables: { skip: 0, take: 100 } }]
   });
 
   const validateAndUpload = (fileInstance) => {
@@ -70,7 +70,7 @@ const TeamUploader = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center'}}>
       <FormControl size="small" sx={{ minWidth: 200 }}>
         <InputLabel id="upload-team-label">Target Import Team</InputLabel>
         <Select

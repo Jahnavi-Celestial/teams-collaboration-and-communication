@@ -1,5 +1,5 @@
 import { useQuery } from "@apollo/client/react";
-import { ExportTeams, GetTeams } from "../../graphql/queries";
+import { ExportTeams, GetAllTeams } from "../../graphql/queries";
 import { useState } from "react";
 import { Select, MenuItem, Button, FormControl, InputLabel, Box } from "@mui/material";
 import DownloadIcon from '@mui/icons-material/Download';
@@ -7,7 +7,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 const TeamDownloader = () => {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const { refetch } = useQuery(ExportTeams, { skip: true });
-  const { data: getTeamsData } = useQuery(GetTeams, { variables: { skip: 0, take: 100 } });
+  const { data: getTeamsData } = useQuery(GetAllTeams, {variables: {skip: 0, take: 100}});
 
   const handleDownload = async () => {
     if (!selectedTeamId) return;
@@ -30,7 +30,7 @@ const TeamDownloader = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: "wrap"}}>
       <FormControl size="small" sx={{ minWidth: 200 }}>
         <InputLabel id="download-team-label">Select Export Team</InputLabel>
         <Select
