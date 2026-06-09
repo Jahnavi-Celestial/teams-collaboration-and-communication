@@ -13,6 +13,7 @@ const TeamUploader = () => {
   });
 
   const validateAndUpload = (fileInstance) => {
+    console.log(fileInstance)
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target.result;
@@ -23,9 +24,9 @@ const TeamUploader = () => {
       }
 
       const headers = lines[0].map(h => h.trim());
-      const emailIdx = headers.findIndex(h => h === 'memberEmail' || h === 'email');
-      const pwdIdx = headers.findIndex(h => h === 'password');
-      const googleIdIdx = headers.findIndex(h => h === 'google_id');
+      const emailIdx = headers.findIndex(h => h.includes('memberEmail') || h.includes('email'));
+      const pwdIdx = headers.findIndex(h => h.includes('password'));
+      const googleIdIdx = headers.findIndex(h => h.includes('google_id'));
 
       if (emailIdx === -1) {
         alert("CSV Validation Error: Missing required column 'memberEmail' or 'email'.");
